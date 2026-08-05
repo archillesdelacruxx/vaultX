@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AiAssistant } from "~/components/ai/assistant";
+import { TopProgressBar } from "~/components/top-progress-bar";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { Sidebar } from "~/components/sidebar";
 import { api } from "~/trpc/react";
@@ -78,8 +80,10 @@ export function AppShell({
   })();
 
   return (
-    <div className="min-h-screen">
-      <Sidebar
+    <>
+      <TopProgressBar />
+      <div className="min-h-screen">
+        <Sidebar
         role={role}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -161,6 +165,9 @@ export function AppShell({
           VaultX · your personal digital vault
         </footer>
       </div>
+
+      <AiAssistant />
     </div>
+    </>
   );
 }

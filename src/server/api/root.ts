@@ -1,4 +1,5 @@
 import { adminRouter } from "~/server/api/routers/admin";
+import { aiRouter } from "~/server/api/routers/ai";
 import { apiKeysRouter } from "~/server/api/routers/apiKeys";
 import { authRouter } from "~/server/api/routers/auth";
 import { bankingRouter } from "~/server/api/routers/banking";
@@ -26,6 +27,7 @@ import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
  */
 export const appRouter = createTRPCRouter({
   admin: adminRouter,
+  ai: aiRouter,
   apiKeys: apiKeysRouter,
   auth: authRouter,
   banking: bankingRouter,

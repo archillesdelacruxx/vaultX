@@ -14,6 +14,7 @@ export const env = createEnv({
     AUTH_URL: z.string().url().optional(),
     DATABASE_URL: z.string().url(),
     APP_KEY: z.string().min(64),
+    GROQ_API_KEY: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -37,6 +38,7 @@ export const env = createEnv({
     AUTH_URL: process.env.AUTH_URL,
     DATABASE_URL: process.env.DATABASE_URL,
     APP_KEY: process.env.APP_KEY,
+    GROQ_API_KEY: process.env.GROQ_API_KEY,
     NODE_ENV: process.env.NODE_ENV,
   },
   /**

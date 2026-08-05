@@ -3,10 +3,12 @@
 import {
   FileDown,
   FileSpreadsheet,
+  Loader2,
   NotebookPen,
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -40,6 +42,8 @@ export default function JournalPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [aiRun, setAiRun] = useState(false);
+  const aiSummary = api.ai.journalSummary.useQuery({ days: 30 }, { enabled: aiRun });
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -158,6 +162,49 @@ export default function JournalPage() {
               <Plus className="h-4 w-4" /> New entry
             </button>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-500 dark:bg-brand-500/10">
+              <Sparkles className="h-4.5 w-4.5" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">AI Summary</h2>
+              <p className="mt-0.5 text-xs text-slate-400">Buod ng iyong journal (last 30 days)</p>
+            </div>
+          </div>
+          {aiRun && !aiSummary.isLoading && !aiSummary.error ? (
+            <button type="button" className="btn btn-ghost text-xs" onClick={() => void aiSummary.refetch()}>
+              Regenerate
+            </button>
+          ) : null}
+        </div>
+        <div className="p-4">
+          {!aiRun ? (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Ipagawa mo sa AI ang buod ng mga entries mo — themes, emotions, at patterns.
+              </p>
+              <button type="button" className="btn btn-secondary shrink-0" onClick={() => setAiRun(true)}>
+                <Sparkles className="h-4 w-4" /> Generate summary
+              </button>
+            </div>
+          ) : aiSummary.isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-4 text-sm text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin" /> Summarizing your journal…
+            </div>
+          ) : aiSummary.error ? (
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
+              {aiSummary.error.message}
+            </div>
+          ) : aiSummary.data ? (
+            <div className="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+              {aiSummary.data.summary}
+            </div>
+          ) : null}
         </div>
       </div>
 

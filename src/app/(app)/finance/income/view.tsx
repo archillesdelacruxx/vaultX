@@ -3,9 +3,11 @@
 import {
   FileDown,
   FileSpreadsheet,
+  Loader2,
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
   Wallet,
 } from "lucide-react";
@@ -31,10 +33,32 @@ export default function IncomePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [suggesting, setSuggesting] = useState(false);
 
   const toast = useToast();
   const confirm = useConfirm();
   const utils = api.useUtils();
+
+  const handleSuggest = async () => {
+    if (!form.title.trim() || !form.amount) {
+      toast("error", "Type a title and amount first.");
+      return;
+    }
+    setSuggesting(true);
+    try {
+      const res = await utils.ai.suggestCategory.fetch({
+        title: form.title,
+        amount: Number(form.amount) || 0,
+        kind: "income",
+      });
+      setForm((f) => ({ ...f, category: res.category }));
+      toast("success", `Suggested category: ${res.category}`);
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : "Failed to suggest category.");
+    } finally {
+      setSuggesting(false);
+    }
+  };
 
   const { data, isLoading } = api.income.list.useQuery({ q: debouncedQ, page }, { staleTime: 30_000 });
 
@@ -273,13 +297,29 @@ export default function IncomePage() {
           </div>
           <div>
             <label className="label">Category</label>
-            <input
-              className="input"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              placeholder="e.g. Salary, Freelance"
-              maxLength={60}
-            />
+            <div className="flex gap-2">
+              <input
+                className="input"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="e.g. Salary, Freelance"
+                maxLength={60}
+              />
+              <button
+                type="button"
+                className="btn btn-secondary shrink-0 px-3"
+                onClick={() => void handleSuggest()}
+                disabled={suggesting}
+                title="Suggest category with AI"
+              >
+                {suggesting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Suggest
+              </button>
+            </div>
           </div>
           <div>
             <label className="label">Notes</label>

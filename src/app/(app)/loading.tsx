@@ -3,6 +3,7 @@ import { ShieldCheck } from "lucide-react";
 export default function AppLoading() {
   return (
     <div className="space-y-5" aria-busy="true" aria-label="Loading">
+      <span className="sr-only">Loading</span>
       <div className="flex items-center gap-3">
         <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 dark:bg-brand-500/10">
           <ShieldCheck className="h-5 w-5 text-brand-600" />

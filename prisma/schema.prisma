@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model api_keys {
+  id          BigInt   @id @default(autoincrement())
+  user_id     BigInt
+  name        String   @db.VarChar(190)
+  api_key_enc String
+  provider    String?  @db.VarChar(100)
+  scopes      String?  @db.VarChar(190)
+  notes       String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_apikeys_user")
+}
+
+model audit_logs {
+  id          BigInt   @id @default(autoincrement())
+  user_id     BigInt?
+  action      String   @db.VarChar(60)
+  entity_type String?  @db.VarChar(60)
+  entity_id   BigInt?
+  details     Json?
+  ip          String?  @db.VarChar(45)
+  user_agent  String?  @db.VarChar(255)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users?   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([entity_type, entity_id], map: "idx_audit_entity")
+  @@index([user_id, created_at], map: "idx_audit_user")
+}
+
+model banking {
+  id                 BigInt   @id @default(autoincrement())
+  user_id            BigInt
+  bank_name          String   @db.VarChar(190)
+  account_type       String?  @db.VarChar(60)
+  account_number_enc String?
+  card_number_enc    String?
+  cvv_enc            String?
+  expiry             String?  @db.VarChar(7)
+  pin_enc            String?
+  account_holder     String?  @db.VarChar(190)
+  branch             String?  @db.VarChar(190)
+  notes              String?
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  users              users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_banking_user")
+}
+
+model documents {
+  id          BigInt   @id @default(autoincrement())
+  user_id     BigInt
+  name        String   @db.VarChar(255)
+  file_path   String   @db.VarChar(255)
+  file_type   String?  @db.VarChar(100)
+  file_size   BigInt   @default(0)
+  description String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_documents_user")
+}
+
+model emergency {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  category   String?  @db.VarChar(60)
+  name       String   @db.VarChar(190)
+  phone_enc  String?
+  address    String?  @db.VarChar(255)
+  notes      String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_emergency_user")
+}
+
+model expenses {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  title      String   @db.VarChar(190)
+  amount     Decimal  @default(0) @db.Decimal(14, 2)
+  category   String?  @db.VarChar(60)
+  paid_on    DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes      String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, paid_on], map: "idx_expenses_user")
+}
+
+model goals {
+  id            BigInt    @id @default(autoincrement())
+  user_id       BigInt
+  title         String    @db.VarChar(190)
+  description   String?
+  target_amount Decimal   @default(0) @db.Decimal(14, 2)
+  saved_amount  Decimal   @default(0) @db.Decimal(14, 2)
+  deadline      DateTime? @db.Date
+  status        String    @default("active") @db.VarChar(20)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_goals_user")
+}
+
+model income {
+  id          BigInt   @id @default(autoincrement())
+  user_id     BigInt
+  title       String   @db.VarChar(190)
+  amount      Decimal  @default(0) @db.Decimal(14, 2)
+  category    String?  @db.VarChar(60)
+  received_on DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes       String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, received_on], map: "idx_income_user")
+}
+
+model journal {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  title      String?  @db.VarChar(190)
+  body       String
+  mood       String?  @db.VarChar(20)
+  entry_date DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, entry_date], map: "idx_journal_user")
+}
+
+model licenses {
+  id              BigInt    @id @default(autoincrement())
+  user_id         BigInt
+  software        String    @db.VarChar(190)
+  license_key_enc String
+  licensed_to     String?   @db.VarChar(190)
+  expiry          DateTime? @db.Date
+  notes           String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_licenses_user")
+}
+
+model notes {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  title      String   @db.VarChar(190)
+  content    String
+  category   String?  @db.VarChar(60)
+  pinned     Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, pinned], map: "idx_notes_user")
+}
+
+model notifications {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  title      String   @db.VarChar(255)
+  body       String?
+  type       String   @default("info") @db.VarChar(30)
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, is_read], map: "idx_notif_user")
+}
+
+model password_resets {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  token_hash String   @db.VarChar(64)
+  expires_at DateTime @db.Timestamptz(6)
+  used       Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_resets_user")
+}
+
+model passwords {
+  id           BigInt   @id @default(autoincrement())
+  user_id      BigInt
+  title        String   @db.VarChar(190)
+  username     String?  @db.VarChar(190)
+  password_enc String?
+  url          String?  @db.VarChar(500)
+  notes        String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+  users        users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_passwords_user")
+}
+
+model savings {
+  id             BigInt    @id @default(autoincrement())
+  user_id        BigInt
+  name           String    @db.VarChar(190)
+  target_amount  Decimal   @default(0) @db.Decimal(14, 2)
+  current_amount Decimal   @default(0) @db.Decimal(14, 2)
+  deadline       DateTime? @db.Date
+  status         String    @default("active") @db.VarChar(20)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_savings_user")
+}
+
+model subscriptions {
+  id            BigInt    @id @default(autoincrement())
+  user_id       BigInt
+  name          String    @db.VarChar(190)
+  amount        Decimal   @default(0) @db.Decimal(14, 2)
+  billing_cycle String    @default("monthly") @db.VarChar(30)
+  next_billing  DateTime? @db.Date
+  auto_renew    Boolean   @default(true)
+  notes         String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, next_billing], map: "idx_subs_user")
+}
+
+model tasks {
+  id          BigInt    @id @default(autoincrement())
+  user_id     BigInt
+  title       String    @db.VarChar(190)
+  description String?
+  status      String    @default("pending") @db.VarChar(20)
+  priority    String    @default("medium") @db.VarChar(10)
+  due_date    DateTime? @db.Date
+  tags        String?   @db.VarChar(190)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, status], map: "idx_tasks_user")
+}
+
+model users {
+  id              BigInt            @id @default(autoincrement())
+  name            String            @db.VarChar(100)
+  email           String            @unique @db.VarChar(190)
+  password_hash   String            @db.VarChar(255)
+  role            String            @default("user") @db.VarChar(20)
+  avatar          String?           @db.VarChar(255)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  api_keys        api_keys[]
+  audit_logs      audit_logs[]
+  banking         banking[]
+  documents       documents[]
+  emergency       emergency[]
+  expenses        expenses[]
+  goals           goals[]
+  income          income[]
+  journal         journal[]
+  licenses        licenses[]
+  notes           notes[]
+  notifications   notifications[]
+  password_resets password_resets[]
+  passwords       passwords[]
+  savings         savings[]
+  subscriptions   subscriptions[]
+  tasks           tasks[]
+}

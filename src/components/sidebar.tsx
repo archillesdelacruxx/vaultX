@@ -28,6 +28,7 @@ import {
 import { useMemo } from "react";
 
 import { cn } from "~/lib/cn";
+import { VaultXLogo } from "~/components/ui/logo";
 
 type NavItem = {
   href: string;
@@ -120,14 +121,15 @@ export function Sidebar({
         )}
       >
         <div className="flex h-16 items-center gap-2.5 px-5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
           {!collapsed ? (
-            <Link href="/dashboard" className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-              Vault<span className="text-brand-600">X</span>
+            <Link href="/dashboard" aria-label="VaultX dashboard">
+              <VaultXLogo />
             </Link>
-          ) : null}
+          ) : (
+            <Link href="/dashboard" aria-label="VaultX dashboard">
+              <VaultXLogo wordmark={false} />
+            </Link>
+          )}
         </div>
 
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">

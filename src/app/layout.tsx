@@ -10,7 +10,10 @@ import { TRPCReactProvider } from "~/trpc/react";
 export const metadata: Metadata = {
   title: "VaultX — Personal Digital Vault",
   description: "Your secure personal vault: passwords, notes, finances and more.",
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
+  icons: [
+    { rel: "icon", url: "/icon.svg", type: "image/svg+xml" },
+    { rel: "icon", url: "/favicon.ico" },
+  ],
 };
 
 const geist = Geist({

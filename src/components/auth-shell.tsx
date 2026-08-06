@@ -1,5 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 
+import { VaultXLogo } from "~/components/ui/logo";
+
 export function AuthShell({
   title,
   subtitle,
@@ -15,12 +17,7 @@ export function AuthShell({
     <div className="flex min-h-screen">
       <div className="relative hidden w-1/2 flex-col justify-between bg-brand-950 p-10 text-white lg:flex">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <span className="text-lg font-bold">
-            Vault<span className="text-brand-400">X</span>
-          </span>
+          <VaultXLogo onDark />
         </div>
         <div>
           <h2 className="text-3xl font-bold leading-tight">
@@ -44,12 +41,7 @@ export function AuthShell({
       <div className="flex w-full items-center justify-center px-4 py-10 lg:w-1/2">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <span className="text-lg font-bold text-slate-900 dark:text-white">
-              Vault<span className="text-brand-600">X</span>
-            </span>
+            <VaultXLogo />
           </div>
 
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">

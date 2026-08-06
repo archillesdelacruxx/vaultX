@@ -1,10 +1,11 @@
 "use client";
 
-import { KeyRound, Trash2 } from "lucide-react";
+import { KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Card } from "~/components/ui/primitives";
+import { PinManagerModal } from "~/components/screen-lock/pin-manager";
 import { useConfirm } from "~/components/ui/confirm";
 import { useToast } from "~/components/ui/toast";
 import { CURRENCY_OPTIONS } from "~/server/lib/format";
@@ -20,6 +21,10 @@ export default function SettingsPage() {
   const router = useRouter();
 
   const [password, setPassword] = useState(EMPTY_PASSWORD);
+  const [pinModal, setPinModal] = useState<"set" | "remove" | null>(null);
+
+  const { data: hasPinData, refetch: refetchPin } = api.auth.hasScreenPin.useQuery();
+  const hasPin = hasPinData?.hasPin ?? false;
 
   const { data: me } = api.auth.me.useQuery(undefined, { staleTime: 60_000 });
   const currency = me?.currency ?? "USD";
@@ -72,6 +77,34 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
+      <Card
+        title="Screen lock"
+        subtitle="Lock your VaultX session with a 6-digit PIN. If no PIN is set, the screen lock stays off."
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">
+              {hasPin ? "PIN is set" : "No PIN set"}
+            </div>
+            <p className="text-xs text-slate-400">
+              {hasPin
+                ? "You can change or remove your screen lock PIN."
+                : "Set a PIN to enable the screen lock."}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {hasPin ? (
+              <button type="button" className="btn btn-secondary" onClick={() => setPinModal("remove")}>
+                Remove PIN
+              </button>
+            ) : null}
+            <button type="button" className="btn btn-primary" onClick={() => setPinModal("set")}>
+              <ShieldCheck className="h-4 w-4" /> {hasPin ? "Change PIN" : "Set PIN"}
+            </button>
+          </div>
+        </div>
+      </Card>
+
       <Card title="Change password" subtitle="Your master password for signing in to VaultX.">
         <form onSubmit={handleChangePassword} className="space-y-3">
           <div>
@@ -163,6 +196,13 @@ export default function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      <PinManagerModal
+        open={pinModal !== null}
+        mode={pinModal === "remove" ? "remove" : "set"}
+        onClose={() => setPinModal(null)}
+        onSaved={() => void refetchPin()}
+      />
     </div>
   );
 }

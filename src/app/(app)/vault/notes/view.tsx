@@ -12,16 +12,19 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
+import { useConfirm } from "~/components/ui/confirm";
 import { Modal } from "~/components/ui/modal";
 import { PaginationBar } from "~/components/ui/pagination";
 import { EmptyState } from "~/components/ui/primitives";
-import { useConfirm } from "~/components/ui/confirm";
-import { useToast } from "~/components/ui/toast";
 import { downloadCsv, downloadXls } from "~/lib/export";
 import { fmtDate } from "~/server/lib/format";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { VaultPinModal } from "~/components/vault/vault-pin-modal";
+import { useVaultLock } from "~/components/vault/use-vault-lock";
 
 type Note = RouterOutputs["notes"]["list"]["rows"][number];
+
 
 export default function NotesPage() {
   const [q, setQ] = useState("");
@@ -31,8 +34,8 @@ export default function NotesPage() {
   const [editing, setEditing] = useState<Note | null>(null);
   const [form, setForm] = useState({ title: "", content: "", category: "", pinned: false });
 
-  const toast = useToast();
   const confirm = useConfirm();
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
   const utils = api.useUtils();
   const { data, isLoading } = api.notes.list.useQuery(
@@ -42,30 +45,24 @@ export default function NotesPage() {
 
   const create = api.notes.create.useMutation({
     onSuccess: () => {
-      toast("success", "Note created.");
       closeModal();
       void utils.notes.list.invalidate();
       void utils.dashboard.overview.invalidate();
     },
-    onError: (e) => toast("error", e.message),
   });
 
   const update = api.notes.update.useMutation({
     onSuccess: () => {
-      toast("success", "Note updated.");
       closeModal();
       void utils.notes.list.invalidate();
     },
-    onError: (e) => toast("error", e.message),
   });
 
   const remove = api.notes.remove.useMutation({
     onSuccess: () => {
-      toast("success", "Note deleted.");
       void utils.notes.list.invalidate();
       void utils.dashboard.overview.invalidate();
     },
-    onError: (e) => toast("error", e.message),
   });
 
   const search = () => {
@@ -74,21 +71,26 @@ export default function NotesPage() {
   };
 
   const openNew = () => {
-    setEditing(null);
-    setForm({ title: "", content: "", category: "", pinned: false });
-    setModalOpen(true);
+    requestUnlock(() => {
+      setEditing(null);
+      setForm({ title: "", content: "", category: "", pinned: false });
+      setModalOpen(true);
+    });
   };
 
   const openEdit = (note: Note) => {
-    setEditing(note);
-    setForm({
-      title: note.title,
-      content: note.content,
-      category: note.category ?? "",
-      pinned: note.pinned,
+    requestUnlock(() => {
+      setEditing(note);
+      setForm({
+        title: note.title,
+        content: note.content,
+        category: note.category ?? "",
+        pinned: note.pinned,
+      });
+      setModalOpen(true);
     });
-    setModalOpen(true);
   };
+
 
   const closeModal = () => setModalOpen(false);
 
@@ -237,58 +239,65 @@ export default function NotesPage() {
         icon={<StickyNote className="h-5 w-5 text-brand-600" />}
         footer={
           <>
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={create.isPending || update.isPending}>
               Cancel
             </button>
-            <button type="submit" form="note-form" className="btn btn-primary" disabled={create.isPending || update.isPending}>
-              Save note
+            <button type="submit" form="note-form" className="btn btn-primary min-w-[110px]" disabled={create.isPending || update.isPending}>
+              {create.isPending || update.isPending ? <ActionSpinner className="mr-1.5" /> : null}
+              {create.isPending || update.isPending ? "Saving..." : "Save note"}
             </button>
           </>
         }
       >
-        <form id="note-form" onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="label">Title</label>
-            <input
-              className="input"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="e.g. Server config"
-              required
-              maxLength={190}
-            />
-          </div>
-          <div>
-            <label className="label">Content</label>
-            <textarea
-              className="input"
-              rows={5}
-              value={form.content}
-              onChange={(e) => setForm({ ...form, content: e.target.value })}
-              placeholder="Write something worth keeping…"
-            />
-          </div>
-          <div>
-            <label className="label">Category</label>
-            <input
-              className="input"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              placeholder="e.g. Personal, Work, Finance"
-              maxLength={60}
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-brand-600"
-              checked={form.pinned}
-              onChange={(e) => setForm({ ...form, pinned: e.target.checked })}
-            />
-            Pin to top
-          </label>
-        </form>
+        <div className="relative">
+          <LoadingOverlay visible={create.isPending || update.isPending} text="Saving note to vault..." />
+          <form id="note-form" onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="label">Title</label>
+              <input
+                className="input"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="e.g. Server config"
+                required
+                maxLength={190}
+              />
+            </div>
+            <div>
+              <label className="label">Content</label>
+              <textarea
+                className="input"
+                rows={5}
+                value={form.content}
+                onChange={(e) => setForm({ ...form, content: e.target.value })}
+                placeholder="Write something worth keeping…"
+              />
+            </div>
+            <div>
+              <label className="label">Category</label>
+              <input
+                className="input"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="e.g. Personal, Work, Finance"
+                maxLength={60}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-brand-600"
+                checked={form.pinned}
+                onChange={(e) => setForm({ ...form, pinned: e.target.checked })}
+              />
+              Pin to top
+            </label>
+          </form>
+        </div>
       </Modal>
+
+      <VaultPinModal open={showPinModal} onSuccess={handleSuccess} />
     </div>
   );
 }
+

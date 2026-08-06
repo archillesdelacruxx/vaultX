@@ -23,6 +23,10 @@ import { downloadCsv, downloadXls } from "~/lib/export";
 import { fmtDate } from "~/server/lib/format";
 import { api, type RouterOutputs } from "~/trpc/react";
 
+import { VaultPinModal } from "~/components/vault/vault-pin-modal";
+import { useVaultLock } from "~/components/vault/use-vault-lock";
+import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
+
 type Row = RouterOutputs["apiKeys"]["list"]["rows"][number];
 
 const EMPTY_FORM = { name: "", apiKey: "", provider: "", scopes: "", notes: "" };
@@ -61,6 +65,7 @@ export default function ApiKeysPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const utils = api.useUtils();
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
   const { data, isLoading } = api.apiKeys.list.useQuery({ q: debouncedQ, page }, { staleTime: 30_000 });
 
@@ -93,22 +98,33 @@ export default function ApiKeysPage() {
   });
 
   const openNew = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setModalOpen(true);
+    requestUnlock(() => {
+      setEditing(null);
+      setForm(EMPTY_FORM);
+      setModalOpen(true);
+    });
   };
 
   const openEdit = (row: Row) => {
-    setEditing(row);
-    setForm({
-      name: row.name,
-      apiKey: row.apiKey,
-      provider: row.provider ?? "",
-      scopes: row.scopes ?? "",
-      notes: row.notes ?? "",
+    requestUnlock(() => {
+      setEditing(row);
+      setForm({
+        name: row.name,
+        apiKey: row.apiKey,
+        provider: row.provider ?? "",
+        scopes: row.scopes ?? "",
+        notes: row.notes ?? "",
+      });
+      setModalOpen(true);
     });
-    setModalOpen(true);
   };
+
+  const toggleRevealKey = (id: number) => {
+    requestUnlock(() => {
+      setRevealed((r) => ({ ...r, [id]: !r[id] }));
+    });
+  };
+
 
   const closeModal = () => {
     setModalOpen(false);
@@ -247,7 +263,7 @@ export default function ApiKeysPage() {
                         type="button"
                         className="icon-btn"
                         title={isRevealed ? "Hide key" : "Show key"}
-                        onClick={() => setRevealed((r) => ({ ...r, [row.id]: !isRevealed }))}
+                        onClick={() => toggleRevealKey(row.id)}
                       >
                         {isRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -268,77 +284,84 @@ export default function ApiKeysPage() {
         icon={<FileKey2 className="h-5 w-5 text-brand-600" />}
         footer={
           <>
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={create.isPending || update.isPending}>
               Cancel
             </button>
             <button
               type="submit"
               form="apikey-form"
-              className="btn btn-primary"
+              className="btn btn-primary min-w-[110px]"
               disabled={create.isPending || update.isPending}
             >
-              Save key
+              {create.isPending || update.isPending ? <ActionSpinner className="mr-1.5" /> : null}
+              {create.isPending || update.isPending ? "Saving..." : "Save key"}
             </button>
           </>
         }
       >
-        <form id="apikey-form" onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="label">Name</label>
-            <input
-              className="input"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. OpenAI production"
-              required
-              maxLength={190}
-            />
-          </div>
-          <div>
-            <label className="label">API key</label>
-            <input
-              className="input"
-              type="password"
-              value={form.apiKey}
-              onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-              placeholder="sk-…"
-              required
-              maxLength={500}
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className="label">Provider</label>
-            <input
-              className="input"
-              value={form.provider}
-              onChange={(e) => setForm({ ...form, provider: e.target.value })}
-              placeholder="e.g. OpenAI, AWS, Stripe"
-              maxLength={100}
-            />
-          </div>
-          <div>
-            <label className="label">Scopes</label>
-            <input
-              className="input"
-              value={form.scopes}
-              onChange={(e) => setForm({ ...form, scopes: e.target.value })}
-              placeholder="e.g. read, write, billing"
-              maxLength={190}
-            />
-          </div>
-          <div>
-            <label className="label">Notes</label>
-            <textarea
-              className="input"
-              rows={3}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              maxLength={20000}
-            />
-          </div>
-        </form>
+        <div className="relative">
+          <LoadingOverlay visible={create.isPending || update.isPending} text="Saving API key to vault..." />
+          <form id="apikey-form" onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="label">Name</label>
+              <input
+                className="input"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. OpenAI production"
+                required
+                maxLength={190}
+              />
+            </div>
+            <div>
+              <label className="label">API key</label>
+              <input
+                className="input"
+                type="password"
+                value={form.apiKey}
+                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                placeholder="sk-…"
+                required
+                maxLength={500}
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="label">Provider</label>
+              <input
+                className="input"
+                value={form.provider}
+                onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                placeholder="e.g. OpenAI, AWS, Stripe"
+                maxLength={100}
+              />
+            </div>
+            <div>
+              <label className="label">Scopes</label>
+              <input
+                className="input"
+                value={form.scopes}
+                onChange={(e) => setForm({ ...form, scopes: e.target.value })}
+                placeholder="e.g. read, write, billing"
+                maxLength={190}
+              />
+            </div>
+            <div>
+              <label className="label">Notes</label>
+              <textarea
+                className="input"
+                rows={3}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                maxLength={20000}
+              />
+            </div>
+          </form>
+        </div>
       </Modal>
+
+      <VaultPinModal open={showPinModal} onSuccess={handleSuccess} />
     </div>
   );
 }
+

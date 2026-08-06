@@ -165,4 +165,77 @@ export const authRouter = createTRPCRouter({
     await db.users.delete({ where: { id: ctx.session.user.id } });
     return { ok: true };
   }),
+
+  hasScreenPin: protectedProcedure.query(async ({ ctx }) => {
+    const user = await db.users.findUnique({
+      where: { id: ctx.session.user.id },
+      select: { screen_pin_hash: true },
+    });
+    return { hasPin: Boolean(user?.screen_pin_hash) };
+  }),
+
+  setScreenPin: protectedProcedure
+    .input(z.object({ pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits.") }))
+    .mutation(async ({ ctx, input }) => {
+      const pinHash = await bcrypt.hash(input.pin, 10);
+      await db.users.update({
+        where: { id: ctx.session.user.id },
+        data: { screen_pin_hash: pinHash },
+      });
+      await audit(Number(ctx.session.user.id), "auth.set_screen_pin", "users", Number(ctx.session.user.id));
+      return { ok: true };
+    }),
+
+  verifyScreenPin: protectedProcedure
+    .input(z.object({ pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits.") }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await db.users.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { screen_pin_hash: true },
+      });
+      if (!user?.screen_pin_hash) {
+        return { valid: false, message: "No PIN set for this account." };
+      }
+      const valid = await bcrypt.compare(input.pin, user.screen_pin_hash);
+      return { valid };
+    }),
+
+  removeScreenPin: protectedProcedure
+    .input(z.object({ pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits.") }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await db.users.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { screen_pin_hash: true },
+      });
+      if (!user?.screen_pin_hash) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No PIN set for this account." });
+      }
+      const valid = await bcrypt.compare(input.pin, user.screen_pin_hash);
+      if (!valid) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Incorrect PIN." });
+      }
+      await db.users.update({
+        where: { id: ctx.session.user.id },
+        data: { screen_pin_hash: null },
+      });
+      await audit(Number(ctx.session.user.id), "auth.remove_screen_pin", "users", Number(ctx.session.user.id));
+      return { ok: true };
+    }),
+
+  resetScreenPinWithPassword: protectedProcedure
+    .input(z.object({ password: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await db.users.findUnique({ where: { id: ctx.session.user.id } });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+      const ok = await bcrypt.compare(input.password, user.password_hash);
+      if (!ok) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Incorrect account password." });
+      }
+      await db.users.update({
+        where: { id: user.id },
+        data: { screen_pin_hash: null },
+      });
+      await audit(Number(ctx.session.user.id), "auth.reset_screen_pin", "users", Number(ctx.session.user.id));
+      return { ok: true };
+    }),
 });

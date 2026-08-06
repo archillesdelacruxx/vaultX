@@ -23,6 +23,10 @@ import { useToast } from "~/components/ui/toast";
 import { downloadCsv, downloadXls } from "~/lib/export";
 import { api, type RouterOutputs } from "~/trpc/react";
 
+import { VaultPinModal } from "~/components/vault/vault-pin-modal";
+import { useVaultLock } from "~/components/vault/use-vault-lock";
+import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
+
 type Row = RouterOutputs["emergency"]["list"]["rows"][number];
 
 const EMPTY_FORM = { category: "", name: "", phone: "", address: "", notes: "" };
@@ -68,6 +72,7 @@ export default function EmergencyPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const utils = api.useUtils();
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
   const { data, isLoading } = api.emergency.list.useQuery({ q: debouncedQ, page }, { staleTime: 30_000 });
 
@@ -98,22 +103,27 @@ export default function EmergencyPage() {
   });
 
   const openNew = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setModalOpen(true);
+    requestUnlock(() => {
+      setEditing(null);
+      setForm(EMPTY_FORM);
+      setModalOpen(true);
+    });
   };
 
   const openEdit = (row: Row) => {
-    setEditing(row);
-    setForm({
-      category: row.category ?? "",
-      name: row.name,
-      phone: row.phone,
-      address: row.address ?? "",
-      notes: row.notes ?? "",
+    requestUnlock(() => {
+      setEditing(row);
+      setForm({
+        category: row.category ?? "",
+        name: row.name,
+        phone: row.phone,
+        address: row.address ?? "",
+        notes: row.notes ?? "",
+      });
+      setModalOpen(true);
     });
-    setModalOpen(true);
   };
+
 
   const closeModal = () => {
     setModalOpen(false);
@@ -286,75 +296,82 @@ export default function EmergencyPage() {
         icon={<LifeBuoy className="h-5 w-5 text-brand-600" />}
         footer={
           <>
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={create.isPending || update.isPending}>
               Cancel
             </button>
             <button
               type="submit"
               form="emergency-form"
-              className="btn btn-primary"
+              className="btn btn-primary min-w-[110px]"
               disabled={create.isPending || update.isPending}
             >
-              Save contact
+              {create.isPending || update.isPending ? <ActionSpinner className="mr-1.5" /> : null}
+              {create.isPending || update.isPending ? "Saving..." : "Save contact"}
             </button>
           </>
         }
       >
-        <form id="emergency-form" onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="label">Name</label>
-            <input
-              className="input"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Mom"
-              required
-              maxLength={190}
-            />
-          </div>
-          <div>
-            <label className="label">Category</label>
-            <input
-              className="input"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              placeholder="e.g. family, medical, police"
-              maxLength={60}
-            />
-          </div>
-          <div>
-            <label className="label">Phone</label>
-            <input
-              className="input"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="e.g. 0917 123 4567"
-              maxLength={40}
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className="label">Address</label>
-            <input
-              className="input"
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-              maxLength={255}
-            />
-          </div>
-          <div>
-            <label className="label">Notes</label>
-            <textarea
-              className="input"
-              rows={3}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="e.g. Blood type, allergies…"
-              maxLength={20000}
-            />
-          </div>
-        </form>
+        <div className="relative">
+          <LoadingOverlay visible={create.isPending || update.isPending} text="Saving contact to vault..." />
+          <form id="emergency-form" onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="label">Name</label>
+              <input
+                className="input"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Mom"
+                required
+                maxLength={190}
+              />
+            </div>
+            <div>
+              <label className="label">Category</label>
+              <input
+                className="input"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="e.g. family, medical, police"
+                maxLength={60}
+              />
+            </div>
+            <div>
+              <label className="label">Phone</label>
+              <input
+                className="input"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="e.g. 0917 123 4567"
+                maxLength={40}
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="label">Address</label>
+              <input
+                className="input"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                maxLength={255}
+              />
+            </div>
+            <div>
+              <label className="label">Notes</label>
+              <textarea
+                className="input"
+                rows={3}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="e.g. Blood type, allergies…"
+                maxLength={20000}
+              />
+            </div>
+          </form>
+        </div>
       </Modal>
+
+      <VaultPinModal open={showPinModal} onSuccess={handleSuccess} />
     </div>
   );
 }
+

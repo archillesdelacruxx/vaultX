@@ -23,6 +23,10 @@ import { downloadCsv, downloadXls } from "~/lib/export";
 import { fmtDate, toDateInput } from "~/server/lib/format";
 import { api, type RouterOutputs } from "~/trpc/react";
 
+import { VaultPinModal } from "~/components/vault/vault-pin-modal";
+import { useVaultLock } from "~/components/vault/use-vault-lock";
+import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
+
 type Row = RouterOutputs["licenses"]["list"]["rows"][number];
 
 const EMPTY_FORM = { software: "", licenseKey: "", licensedTo: "", expiry: "", notes: "" };
@@ -61,6 +65,7 @@ export default function LicensesPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const utils = api.useUtils();
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
   const { data, isLoading } = api.licenses.list.useQuery({ q: debouncedQ, page }, { staleTime: 30_000 });
 
@@ -93,22 +98,33 @@ export default function LicensesPage() {
   });
 
   const openNew = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setModalOpen(true);
+    requestUnlock(() => {
+      setEditing(null);
+      setForm(EMPTY_FORM);
+      setModalOpen(true);
+    });
   };
 
   const openEdit = (row: Row) => {
-    setEditing(row);
-    setForm({
-      software: row.software,
-      licenseKey: row.licenseKey,
-      licensedTo: row.licensedTo ?? "",
-      expiry: toDateInput(row.expiry),
-      notes: row.notes ?? "",
+    requestUnlock(() => {
+      setEditing(row);
+      setForm({
+        software: row.software,
+        licenseKey: row.licenseKey,
+        licensedTo: row.licensedTo ?? "",
+        expiry: toDateInput(row.expiry),
+        notes: row.notes ?? "",
+      });
+      setModalOpen(true);
     });
-    setModalOpen(true);
   };
+
+  const toggleRevealKey = (id: number) => {
+    requestUnlock(() => {
+      setRevealed((r) => ({ ...r, [id]: !r[id] }));
+    });
+  };
+
 
   const closeModal = () => {
     setModalOpen(false);
@@ -253,7 +269,7 @@ export default function LicensesPage() {
                         type="button"
                         className="icon-btn"
                         title={isRevealed ? "Hide key" : "Show key"}
-                        onClick={() => setRevealed((r) => ({ ...r, [row.id]: !isRevealed }))}
+                        onClick={() => toggleRevealKey(row.id)}
                       >
                         {isRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -274,76 +290,83 @@ export default function LicensesPage() {
         icon={<FileText className="h-5 w-5 text-brand-600" />}
         footer={
           <>
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={create.isPending || update.isPending}>
               Cancel
             </button>
             <button
               type="submit"
               form="license-form"
-              className="btn btn-primary"
+              className="btn btn-primary min-w-[110px]"
               disabled={create.isPending || update.isPending}
             >
-              Save license
+              {create.isPending || update.isPending ? <ActionSpinner className="mr-1.5" /> : null}
+              {create.isPending || update.isPending ? "Saving..." : "Save license"}
             </button>
           </>
         }
       >
-        <form id="license-form" onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="label">Software</label>
-            <input
-              className="input"
-              value={form.software}
-              onChange={(e) => setForm({ ...form, software: e.target.value })}
-              placeholder="e.g. Adobe Photoshop"
-              required
-              maxLength={190}
-            />
-          </div>
-          <div>
-            <label className="label">License key</label>
-            <input
-              className="input"
-              type="password"
-              value={form.licenseKey}
-              onChange={(e) => setForm({ ...form, licenseKey: e.target.value })}
-              placeholder="XXXX-XXXX-XXXX-XXXX"
-              required
-              maxLength={500}
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className="label">Licensed to</label>
-            <input
-              className="input"
-              value={form.licensedTo}
-              onChange={(e) => setForm({ ...form, licensedTo: e.target.value })}
-              placeholder="e.g. you@email.com"
-              maxLength={190}
-            />
-          </div>
-          <div>
-            <label className="label">Expiry date</label>
-            <input
-              className="input"
-              type="date"
-              value={form.expiry}
-              onChange={(e) => setForm({ ...form, expiry: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="label">Notes</label>
-            <textarea
-              className="input"
-              rows={3}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              maxLength={20000}
-            />
-          </div>
-        </form>
+        <div className="relative">
+          <LoadingOverlay visible={create.isPending || update.isPending} text="Saving license to vault..." />
+          <form id="license-form" onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="label">Software</label>
+              <input
+                className="input"
+                value={form.software}
+                onChange={(e) => setForm({ ...form, software: e.target.value })}
+                placeholder="e.g. Adobe Photoshop"
+                required
+                maxLength={190}
+              />
+            </div>
+            <div>
+              <label className="label">License key</label>
+              <input
+                className="input"
+                type="password"
+                value={form.licenseKey}
+                onChange={(e) => setForm({ ...form, licenseKey: e.target.value })}
+                placeholder="XXXX-XXXX-XXXX-XXXX"
+                required
+                maxLength={500}
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="label">Licensed to</label>
+              <input
+                className="input"
+                value={form.licensedTo}
+                onChange={(e) => setForm({ ...form, licensedTo: e.target.value })}
+                placeholder="e.g. you@email.com"
+                maxLength={190}
+              />
+            </div>
+            <div>
+              <label className="label">Expiry date</label>
+              <input
+                className="input"
+                type="date"
+                value={form.expiry}
+                onChange={(e) => setForm({ ...form, expiry: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Notes</label>
+              <textarea
+                className="input"
+                rows={3}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                maxLength={20000}
+              />
+            </div>
+          </form>
+        </div>
       </Modal>
+
+      <VaultPinModal open={showPinModal} onSuccess={handleSuccess} />
     </div>
   );
 }
+

@@ -266,6 +266,7 @@ model users {
   name            String            @db.VarChar(100)
   email           String            @unique @db.VarChar(190)
   password_hash   String            @db.VarChar(255)
+  screen_pin_hash String?           @db.VarChar(255)
   role            String            @default("user") @db.VarChar(20)
   currency        String            @default("USD") @db.VarChar(3)
   avatar          String?           @db.VarChar(255)

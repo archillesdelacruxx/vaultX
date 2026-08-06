@@ -26,7 +26,12 @@ import { downloadCsv, downloadXls } from "~/lib/export";
 import { fmtDate } from "~/server/lib/format";
 import { api, type RouterOutputs } from "~/trpc/react";
 
+import { VaultPinModal } from "~/components/vault/vault-pin-modal";
+import { useVaultLock } from "~/components/vault/use-vault-lock";
+import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
+
 type PasswordRow = RouterOutputs["passwords"]["list"]["rows"][number];
+
 
 const EMPTY_FORM = {
   title: "",
@@ -168,16 +173,28 @@ export default function PasswordsPage() {
     setDebouncedQ(q.trim());
   };
 
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
+
   const openNew = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setShowPw(false);
-    setModalOpen(true);
+    requestUnlock(() => {
+      setEditing(null);
+      setForm(EMPTY_FORM);
+      setShowPw(false);
+      setModalOpen(true);
+    });
   };
 
   const openEdit = (row: PasswordRow) => {
-    setShowPw(false);
-    setEditing(row);
+    requestUnlock(() => {
+      setShowPw(false);
+      setEditing(row);
+    });
+  };
+
+  const toggleReveal = (id: number) => {
+    requestUnlock(() => {
+      setRevealed((r) => ({ ...r, [id]: !r[id] }));
+    });
   };
 
   const closeModal = () => {
@@ -333,7 +350,7 @@ export default function PasswordsPage() {
                           type="button"
                           className="icon-btn shrink-0"
                           title={isRevealed ? "Hide password" : "Show password"}
-                          onClick={() => setRevealed((r) => ({ ...r, [row.id]: !isRevealed }))}
+                          onClick={() => toggleReveal(row.id)}
                         >
                           {isRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
@@ -368,101 +385,108 @@ export default function PasswordsPage() {
         icon={<LockKeyhole className="h-5 w-5 text-brand-600" />}
         footer={
           <>
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={create.isPending || update.isPending}>
               Cancel
             </button>
             <button
               type="submit"
               form="password-form"
-              className="btn btn-primary"
+              className="btn btn-primary min-w-[120px]"
               disabled={create.isPending || update.isPending}
             >
-              Save password
+              {create.isPending || update.isPending ? <ActionSpinner className="mr-1.5" /> : null}
+              {create.isPending || update.isPending ? "Saving..." : "Save password"}
             </button>
           </>
         }
       >
-        <form id="password-form" onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="label">Site / Title</label>
-            <input
-              className="input"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="e.g. Facebook"
-              required
-              maxLength={190}
-            />
-          </div>
-          <div>
-            <label className="label">Username</label>
-            <input
-              className="input"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-              placeholder="e.g. you@email.com"
-              maxLength={190}
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className="label">Password</label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  className="input w-full pr-10"
-                  type={showPw ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Leave blank to keep current"
-                  maxLength={500}
-                  autoComplete="new-password"
-                />
+        <div className="relative">
+          <LoadingOverlay visible={create.isPending || update.isPending} text="Encrypting & saving password..." />
+          <form id="password-form" onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="label">Site / Title</label>
+              <input
+                className="input"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="e.g. Facebook"
+                required
+                maxLength={190}
+              />
+            </div>
+            <div>
+              <label className="label">Username</label>
+              <input
+                className="input"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                placeholder="e.g. you@email.com"
+                maxLength={190}
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="label">Password</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    className="input w-full pr-10"
+                    type={showPw ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder="Leave blank to keep current"
+                    maxLength={500}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="icon-btn absolute right-2 top-1/2 -translate-y-1/2"
+                    title={showPw ? "Hide" : "Show"}
+                    onClick={() => setShowPw((v) => !v)}
+                  >
+                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
                 <button
                   type="button"
-                  className="icon-btn absolute right-2 top-1/2 -translate-y-1/2"
-                  title={showPw ? "Hide" : "Show"}
-                  onClick={() => setShowPw((v) => !v)}
+                  className="btn btn-secondary"
+                  title="Generate strong password"
+                  onClick={() => {
+                    setForm((f) => ({ ...f, password: generatePassword() }));
+                    setShowPw(true);
+                  }}
                 >
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <Wand2 className="h-4 w-4" /> Generate
                 </button>
               </div>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                title="Generate strong password"
-                onClick={() => {
-                  setForm((f) => ({ ...f, password: generatePassword() }));
-                  setShowPw(true);
-                }}
-              >
-                <Wand2 className="h-4 w-4" /> Generate
-              </button>
             </div>
-          </div>
-          <div>
-            <label className="label">URL</label>
-            <input
-              className="input"
-              value={form.url}
-              onChange={(e) => setForm({ ...form, url: e.target.value })}
-              placeholder="https://facebook.com"
-              maxLength={500}
-            />
-          </div>
-          <div>
-            <label className="label">Notes</label>
-            <textarea
-              className="input"
-              rows={4}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Anything worth remembering…"
-              maxLength={20000}
-            />
-          </div>
-        </form>
+            <div>
+              <label className="label">URL</label>
+              <input
+                className="input"
+                value={form.url}
+                onChange={(e) => setForm({ ...form, url: e.target.value })}
+                placeholder="https://facebook.com"
+                maxLength={500}
+              />
+            </div>
+            <div>
+              <label className="label">Notes</label>
+              <textarea
+                className="input"
+                rows={4}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="Anything worth remembering…"
+                maxLength={20000}
+              />
+            </div>
+          </form>
+        </div>
       </Modal>
+
+      <VaultPinModal open={showPinModal} onSuccess={handleSuccess} />
     </div>
   );
 }
+

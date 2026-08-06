@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { LockKeyhole } from "lucide-react";
+import { LockKeyhole, LogOut } from "lucide-react";
 import { useState } from "react";
 
 import { AuthShell } from "~/components/auth-shell";
@@ -17,6 +17,8 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const signedOut = params.get("signedOut") === "1";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +34,7 @@ export function LoginForm() {
       setError("Invalid email or password.");
       return;
     }
-    router.push(callbackUrl);
+    router.replace(callbackUrl);
     router.refresh();
   };
 
@@ -50,6 +52,13 @@ export function LoginForm() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
+        {signedOut ? (
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-400">
+            <LogOut className="h-4 w-4 shrink-0" />
+            You have been signed out.
+          </div>
+        ) : null}
+
         {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-500/10">
             {error}

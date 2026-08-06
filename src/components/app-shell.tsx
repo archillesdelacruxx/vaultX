@@ -1,7 +1,8 @@
 "use client";
 
-import { Bell, Lock, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { Bell, Lock, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -163,11 +164,16 @@ export function AppShell({
                     >
                       <Lock className="h-4 w-4" /> Lock Screen
                     </button>
-                    <form action="/api/auth/signout" method="post" className="border-t border-slate-100 dark:border-slate-800">
-                      <button type="submit" className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">
-                        Sign out
-                      </button>
-                    </form>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        void signOut({ callbackUrl: "/login?signedOut=1" });
+                      }}
+                      className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:border-slate-800 dark:text-red-400 dark:hover:bg-red-500/10"
+                    >
+                      <LogOut className="h-4 w-4" /> Sign out
+                    </button>
                   </div>
                 </>
               ) : null}

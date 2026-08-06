@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { Bell, Lock, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,6 +9,7 @@ import { AiAssistant } from "~/components/ai/assistant";
 import { TopProgressBar } from "~/components/top-progress-bar";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { Sidebar } from "~/components/sidebar";
+import { useScreenLock } from "~/components/screen-lock/screen-lock-provider";
 import { api } from "~/trpc/react";
 import { initials } from "~/server/lib/format";
 import { cn } from "~/lib/cn";
@@ -45,6 +46,7 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { lockScreen } = useScreenLock();
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -147,6 +149,16 @@ export function AppShell({
                     <Link href="/settings" className="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
                       Settings
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        lockScreen();
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      <Lock className="h-4 w-4" /> Lock Screen
+                    </button>
                     <form action="/api/auth/signout" method="post" className="border-t border-slate-100 dark:border-slate-800">
                       <button type="submit" className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">
                         Sign out

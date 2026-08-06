@@ -12,14 +12,16 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
+import { useConfirm } from "~/components/ui/confirm";
+import { Modal } from "~/components/ui/modal";
+import { PaginationBar } from "~/components/ui/pagination";
+import { EmptyState } from "~/components/ui/primitives";
 import { downloadCsv, downloadXls } from "~/lib/export";
 import { fmtDate } from "~/server/lib/format";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { VaultPinModal } from "~/components/vault/vault-pin-modal";
 import { useVaultLock } from "~/components/vault/use-vault-lock";
-import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
-import { useConfirm } from "~/components/ui/confirm";
-import { useToast } from "~/components/ui/toast";
 
 type Note = RouterOutputs["notes"]["list"]["rows"][number];
 
@@ -32,7 +34,6 @@ export default function NotesPage() {
   const [editing, setEditing] = useState<Note | null>(null);
   const [form, setForm] = useState({ title: "", content: "", category: "", pinned: false });
 
-  const toast = useToast();
   const confirm = useConfirm();
   const { isUnlocked, showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
@@ -44,30 +45,24 @@ export default function NotesPage() {
 
   const create = api.notes.create.useMutation({
     onSuccess: () => {
-      toast("success", "Note created.");
       closeModal();
       void utils.notes.list.invalidate();
       void utils.dashboard.overview.invalidate();
     },
-    onError: (e) => toast("error", e.message),
   });
 
   const update = api.notes.update.useMutation({
     onSuccess: () => {
-      toast("success", "Note updated.");
       closeModal();
       void utils.notes.list.invalidate();
     },
-    onError: (e) => toast("error", e.message),
   });
 
   const remove = api.notes.remove.useMutation({
     onSuccess: () => {
-      toast("success", "Note deleted.");
       void utils.notes.list.invalidate();
       void utils.dashboard.overview.invalidate();
     },
-    onError: (e) => toast("error", e.message),
   });
 
   const search = () => {

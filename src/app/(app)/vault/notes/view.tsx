@@ -35,7 +35,7 @@ export default function NotesPage() {
   const [form, setForm] = useState({ title: "", content: "", category: "", pinned: false });
 
   const confirm = useConfirm();
-  const { isUnlocked, showPinModal, requestUnlock, handleSuccess } = useVaultLock();
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
   const utils = api.useUtils();
   const { data, isLoading } = api.notes.list.useQuery(

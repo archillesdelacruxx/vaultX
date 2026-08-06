@@ -11,7 +11,7 @@ interface ScreenLockContextType {
 }
 
 const ScreenLockContext = createContext<ScreenLockContextType>({
-  isLocked: true,
+  isLocked: false,
   lockScreen: () => undefined,
   unlockScreen: () => undefined,
 });
@@ -21,19 +21,22 @@ export const useScreenLock = () => useContext(ScreenLockContext);
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 export function ScreenLockProvider({ children, userName }: { children: React.ReactNode; userName?: string }) {
-  const [isLocked, setIsLocked] = useState<boolean>(true);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
   const [initialized, setInitialized] = useState<boolean>(false);
 
-  const { data: pinData, isLoading, refetch } = api.auth.hasScreenPin.useQuery(undefined, {
+  const { data: pinData, refetch } = api.auth.hasScreenPin.useQuery(undefined, {
     staleTime: 60_000,
   });
 
+  const hasPin = pinData?.hasPin ?? false;
+
   const lockScreen = useCallback(() => {
+    if (!hasPin) return; // no PIN set -> nothing to lock
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("vaultx_screen_unlocked");
     }
     setIsLocked(true);
-  }, []);
+  }, [hasPin]);
 
   const unlockScreen = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -45,16 +48,18 @@ export function ScreenLockProvider({ children, userName }: { children: React.Rea
 
   // Initial check on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const unlocked = sessionStorage.getItem("vaultx_screen_unlocked") === "true";
-      if (unlocked && pinData?.hasPin) {
-        setIsLocked(false);
-      } else {
-        setIsLocked(true);
-      }
-      setInitialized(true);
+    if (typeof window === "undefined") return;
+    const unlocked = sessionStorage.getItem("vaultx_screen_unlocked") === "true";
+    setIsLocked(!unlocked && hasPin);
+    setInitialized(true);
+  }, [hasPin]);
+
+  // Keep state consistent if the PIN is removed while unlocked
+  useEffect(() => {
+    if (initialized && !hasPin) {
+      setIsLocked(false);
     }
-  }, [pinData]);
+  }, [hasPin, initialized]);
 
   // Inactivity listener
   useEffect(() => {
@@ -80,20 +85,12 @@ export function ScreenLockProvider({ children, userName }: { children: React.Rea
     };
   }, [isLocked, lockScreen]);
 
-  const hasPin = pinData?.hasPin ?? false;
-  const isSetupMode = !hasPin;
-
   return (
     <ScreenLockContext.Provider value={{ isLocked, lockScreen, unlockScreen }}>
       {children}
-      {initialized && !isLoading && (
-        <ScreenLockModal
-          open={isLocked || isSetupMode}
-          isSetupMode={isSetupMode}
-          onUnlocked={unlockScreen}
-          userName={userName}
-        />
-      )}
+      {initialized && isLocked ? (
+        <ScreenLockModal open={isLocked} onUnlocked={unlockScreen} userName={userName} />
+      ) : null}
     </ScreenLockContext.Provider>
   );
 }

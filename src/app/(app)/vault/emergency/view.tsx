@@ -72,7 +72,7 @@ export default function EmergencyPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const utils = api.useUtils();
-  const { isUnlocked, showPinModal, requestUnlock, handleSuccess } = useVaultLock();
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
   const { data, isLoading } = api.emergency.list.useQuery({ q: debouncedQ, page }, { staleTime: 30_000 });
 

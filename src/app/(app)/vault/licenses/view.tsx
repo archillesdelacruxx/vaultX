@@ -65,7 +65,7 @@ export default function LicensesPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const utils = api.useUtils();
-  const { isUnlocked, showPinModal, requestUnlock, handleSuccess } = useVaultLock();
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
   const { data, isLoading } = api.licenses.list.useQuery({ q: debouncedQ, page }, { staleTime: 30_000 });
 

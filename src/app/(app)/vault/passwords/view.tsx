@@ -173,7 +173,7 @@ export default function PasswordsPage() {
     setDebouncedQ(q.trim());
   };
 
-  const { isUnlocked, showPinModal, requestUnlock, handleSuccess, lockVault } = useVaultLock();
+  const { showPinModal, requestUnlock, handleSuccess } = useVaultLock();
 
   const openNew = () => {
     requestUnlock(() => {

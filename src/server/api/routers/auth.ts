@@ -36,7 +36,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       throwIfRateLimited(`register:${getClientIp(ctx.headers)}`, {
         limit: 5,
-        windowMs: 60_000,
+        windowMs: 300_000,
       });
       const email = input.email.toLowerCase().trim();
       const exists = await db.users.findFirst({ where: { email } });
@@ -68,7 +68,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       throwIfRateLimited(`forgot:${getClientIp(ctx.headers)}`, {
         limit: 5,
-        windowMs: 60_000,
+        windowMs: 300_000,
       });
       const email = input.email.toLowerCase().trim();
       const user = await db.users.findFirst({ where: { email } });
@@ -96,7 +96,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       throwIfRateLimited(`reset:${getClientIp(ctx.headers)}`, {
         limit: 5,
-        windowMs: 60_000,
+        windowMs: 300_000,
       });
       const reset = await db.password_resets.findFirst({
         where: {
@@ -192,7 +192,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       throwIfRateLimited(`pin:${getClientIp(ctx.headers)}`, {
         limit: 10,
-        windowMs: 60_000,
+        windowMs: 300_000,
       });
       const pinHash = await bcrypt.hash(input.pin, 10);
       await db.users.update({
@@ -208,7 +208,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       throwIfRateLimited(`pin:${getClientIp(ctx.headers)}`, {
         limit: 10,
-        windowMs: 60_000,
+        windowMs: 300_000,
       });
       const user = await db.users.findUnique({
         where: { id: ctx.session.user.id },
@@ -226,7 +226,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       throwIfRateLimited(`pin:${getClientIp(ctx.headers)}`, {
         limit: 10,
-        windowMs: 60_000,
+        windowMs: 300_000,
       });
       const user = await db.users.findUnique({
         where: { id: ctx.session.user.id },
@@ -252,7 +252,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       throwIfRateLimited(`pin:${getClientIp(ctx.headers)}`, {
         limit: 10,
-        windowMs: 60_000,
+        windowMs: 300_000,
       });
       const user = await db.users.findUnique({ where: { id: ctx.session.user.id } });
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });

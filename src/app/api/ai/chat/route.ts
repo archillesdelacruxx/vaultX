@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const key = `ai:${session.user.id}:${getClientIp(req.headers)}`;
   const limited = rateLimit(key, {
     limit: 20,
-    windowMs: 60_000,
+    windowMs: 300_000,
   });
   if (!limited.ok) {
     return new Response("AI chat rate limit reached. Please try again shortly.", {

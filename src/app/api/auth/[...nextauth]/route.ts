@@ -4,7 +4,7 @@ import { handlers } from "~/server/auth";
 import { getClientIp, rateLimit } from "~/server/lib/rate-limit";
 
 const LOGIN_LIMIT = 10;
-const LOGIN_WINDOW_MS = 60_000;
+const LOGIN_WINDOW_MS = 300_000;
 
 export const GET = handlers.GET;
 

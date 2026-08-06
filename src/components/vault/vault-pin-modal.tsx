@@ -1,6 +1,6 @@
 "use client";
 
-import { Delete, KeyRound, Lock, Unlock } from "lucide-react";
+import { Delete, Lock } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { cn } from "~/lib/cn";
 
@@ -104,7 +104,7 @@ export function VaultPinModal({
   };
 
   const verifyPin = (enteredPin: string) => {
-    const storedPin = typeof window !== "undefined" ? sessionStorage.getItem(PIN_SESSION_KEY) || DEFAULT_PIN : DEFAULT_PIN;
+    const storedPin = typeof window !== "undefined" ? sessionStorage.getItem(PIN_SESSION_KEY) ?? DEFAULT_PIN : DEFAULT_PIN;
     if (enteredPin === storedPin || enteredPin === "123456") {
       if (typeof window !== "undefined") {
         sessionStorage.setItem("vaultx_unlocked", "true");

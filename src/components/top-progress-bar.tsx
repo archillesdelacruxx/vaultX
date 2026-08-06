@@ -32,7 +32,7 @@ export function TopProgressBar() {
   useEffect(() => {
     const handleAnchorClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest("a");
-      if (target && target.href && target.href.startsWith(window.location.origin)) {
+      if (target?.href?.startsWith(window.location.origin)) {
         const url = new URL(target.href);
         if (url.pathname !== window.location.pathname || url.search !== window.location.search) {
           setLoading(true);

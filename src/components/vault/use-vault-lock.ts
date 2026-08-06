@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export function useVaultLock(defaultLocked = true) {
+export function useVaultLock() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);

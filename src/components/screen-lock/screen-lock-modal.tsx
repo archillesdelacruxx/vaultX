@@ -1,6 +1,6 @@
 "use client";
 
-import { Delete, KeyRound, Lock, ShieldCheck } from "lucide-react";
+import { Delete, Lock, ShieldCheck } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { ActionSpinner } from "~/components/ui/action-spinner";
 import { cn } from "~/lib/cn";
@@ -59,7 +59,7 @@ export function ScreenLockModal({
     }
 
     if (digit && index === 5 && newPin.every((d) => d !== "")) {
-      handleSubmit(newPin.join(""));
+      void handleSubmit(newPin.join(""));
     }
   };
 
@@ -101,7 +101,7 @@ export function ScreenLockModal({
       }
 
       if (firstEmptyIndex === 5) {
-        handleSubmit(newPin.join(""));
+        void handleSubmit(newPin.join(""));
       }
     }
   };

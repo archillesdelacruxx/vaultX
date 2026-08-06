@@ -267,6 +267,7 @@ model users {
   email           String            @unique @db.VarChar(190)
   password_hash   String            @db.VarChar(255)
   role            String            @default("user") @db.VarChar(20)
+  currency        String            @default("USD") @db.VarChar(3)
   avatar          String?           @db.VarChar(255)
   created_at      DateTime          @default(now()) @db.Timestamptz(6)
   updated_at      DateTime          @default(now()) @db.Timestamptz(6)

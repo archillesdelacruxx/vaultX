@@ -7,9 +7,11 @@ import { useState } from "react";
 import { CashflowChart, CategoryDonut } from "~/components/charts";
 import { Card, EmptyState, PageLoader, StatCard } from "~/components/ui/primitives";
 import { fmtDate, money } from "~/server/lib/format";
+import { useCurrency } from "~/components/currency-context";
 import { api } from "~/trpc/react";
 
 export default function ReportsPage() {
+  const currency = useCurrency();
   const { data, isLoading } = api.dashboard.overview.useQuery();
   const [run, setRun] = useState(false);
   const insights = api.ai.reportInsights.useQuery({ months: 6 }, { enabled: run });
@@ -24,10 +26,10 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Income this month" value={`$${money(monthlyIncome)}`} icon={Wallet} tone="green" />
-        <StatCard label="Spending this month" value={`$${money(monthlySpend)}`} icon={ReceiptText} tone="red" />
-        <StatCard label="Total income" value={`$${money(totalIncome)}`} icon={Banknote} tone="violet" />
-        <StatCard label="Total expenses" value={`$${money(totalSpend)}`} icon={PiggyBank} tone="amber" />
+        <StatCard label="Income this month" value={money(monthlyIncome, currency)} icon={Wallet} tone="green" />
+        <StatCard label="Spending this month" value={money(monthlySpend, currency)} icon={ReceiptText} tone="red" />
+        <StatCard label="Total income" value={money(totalIncome, currency)} icon={Banknote} tone="violet" />
+        <StatCard label="Total expenses" value={money(totalSpend, currency)} icon={PiggyBank} tone="amber" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -58,7 +60,7 @@ export default function ReportsPage() {
                   <div className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</div>
                   <div className="text-xs text-slate-400">{fmtDate(s.nextBilling)}</div>
                 </div>
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">${money(s.amount)}</span>
+                <span className="text-sm font-semibold text-slate-900 dark:text-white">{money(s.amount, currency)}</span>
               </li>
             ))}
           </ul>

@@ -14,6 +14,7 @@ export const authConfig = {
       if (user) {
         token.id = String(user.id);
         token.role = user.role;
+        token.currency = user.currency;
         token.name = user.name;
         token.email = user.email;
       }
@@ -25,6 +26,7 @@ export const authConfig = {
         ...session.user,
         id: token.id as string,
         role: token.role as string,
+        currency: (token.currency as string) ?? "USD",
       },
     }),
   },

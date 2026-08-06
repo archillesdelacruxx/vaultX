@@ -19,7 +19,8 @@ import { EmptyState } from "~/components/ui/primitives";
 import { useConfirm } from "~/components/ui/confirm";
 import { useToast } from "~/components/ui/toast";
 import { downloadCsv, downloadXls } from "~/lib/export";
-import { fmtDate, money, toDateInput } from "~/server/lib/format";
+import { fmtDate, money, moneyAmount, toDateInput } from "~/server/lib/format";
+import { useCurrency } from "~/components/currency-context";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 type Row = RouterOutputs["expenses"]["list"]["rows"][number];
@@ -27,6 +28,7 @@ type Row = RouterOutputs["expenses"]["list"]["rows"][number];
 const EMPTY_FORM = { title: "", amount: "", category: "", paidOn: "", notes: "" };
 
 export default function ExpensesPage() {
+  const currency = useCurrency();
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
@@ -139,7 +141,7 @@ export default function ExpensesPage() {
     () =>
       data?.rows.map((r) => ({
         title: r.title,
-        amount: money(r.amount),
+        amount: moneyAmount(r.amount),
         category: r.category ?? "",
         paidOn: fmtDate(r.paidOn),
         notes: r.notes ?? "",
@@ -222,7 +224,7 @@ export default function ExpensesPage() {
                   </div>
                 </div>
                 <div className="flex-1 px-4 pb-3">
-                  <div className="text-lg font-bold text-slate-900 dark:text-white">${money(row.amount)}</div>
+                  <div className="text-lg font-bold text-slate-900 dark:text-white">{money(row.amount, currency)}</div>
                   {row.notes ? <p className="mt-1 line-clamp-2 text-xs text-slate-400">{row.notes}</p> : null}
                 </div>
                 <div className="mt-auto flex items-center justify-between border-t border-slate-100 px-4 py-2.5 dark:border-slate-800">

@@ -1,6 +1,7 @@
 import { db } from "~/server/db";
 
 export type AssistantContext = {
+  currency: string;
   expenses: Array<{
     title: string;
     amount: number;
@@ -71,6 +72,7 @@ export type AssistantContext = {
 
 export async function buildAssistantContext(
   userId: number,
+  currency = "USD",
 ): Promise<AssistantContext> {
   const [expenses, income, savings, goals, tasks, subscriptions, journal, notes] =
     await Promise.all([
@@ -135,6 +137,7 @@ export async function buildAssistantContext(
     ]);
 
   return {
+    currency,
     expenses: expenses.map((e) => ({
       title: e.title,
       amount: Number(e.amount),
@@ -223,7 +226,8 @@ export function buildSystemPrompt(ctx: AssistantContext): string {
     "",
     "USER DATA (non-secret summary):",
     "",
-    `Vault overview: ${ctx.counts.passwords} passwords, ${ctx.counts.notes} notes, ${ctx.counts.apiKeys} API keys, ${ctx.counts.licenses} licenses, ${ctx.counts.banking} bank accounts, ${ctx.counts.documents} documents.`,
+     `Vault overview: ${ctx.counts.passwords} passwords, ${ctx.counts.notes} notes, ${ctx.counts.apiKeys} API keys, ${ctx.counts.licenses} licenses, ${ctx.counts.banking} bank accounts, ${ctx.counts.documents} documents.`,
+     `Currency in use: ${ctx.currency}. All monetary amounts are expressed in ${ctx.currency}.`,
     `Tasks: ${ctx.counts.tasksOpen} open, ${ctx.counts.tasksDone} done.`,
     `Goals: ${ctx.counts.goalsActive} active. Savings accounts: ${ctx.counts.savingsActive} active.`,
     `Subscriptions: ${ctx.counts.subscriptions}. Journal entries: ${ctx.counts.journalEntries}.`,

@@ -20,7 +20,10 @@ export async function POST(req: Request) {
     }>;
   };
 
-  const context = await buildAssistantContext(Number(session.user.id));
+  const context = await buildAssistantContext(
+    Number(session.user.id),
+    session.user.currency ?? "USD",
+  );
 
   const result = streamText({
     model: groq("llama-3.3-70b-versatile"),

@@ -35,6 +35,7 @@ export const aiRouter = createTRPCRouter({
     .input(z.object({ months: z.number().int().min(1).max(24).default(6) }))
     .query(async ({ ctx, input }) => {
       const uid = ctx.session.user.id;
+      const currency = ctx.session.user.currency ?? "USD";
       const start = new Date();
       start.setMonth(start.getMonth() - (input.months - 1));
       start.setDate(1);
@@ -113,6 +114,7 @@ export const aiRouter = createTRPCRouter({
         .reduce((a, g) => a + Number(g.target_amount), 0);
 
       const data = [
+        `Currency: ${currency}.`,
         `Period: last ${input.months} month(s).`,
         `Cashflow by month (YYYY-MM): ${byMonth
           .map((m) => `${m.month} in=${m.income.toFixed(2)} out=${m.expenses.toFixed(2)}`)
@@ -129,7 +131,8 @@ export const aiRouter = createTRPCRouter({
       const system =
         "You are VaultX AI, a financial insights analyst. " +
         "Give the user a concise, friendly financial report with: a summary of overall spending vs income, " +
-        "notable trends month over month, top spending areas, savings and goal progress, and 2-3 practical suggestions to improve. " +
+        `notable trends month over month, top spending areas, savings and goal progress, and 2-3 practical suggestions to improve. ` +
+        `All monetary amounts are in ${currency}. ` +
         "Use short bullet points. Respond in the same language the user writes in. Do not invent numbers that are not in the data.";
 
       return { insights: await chat(system, data) };

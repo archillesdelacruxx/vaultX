@@ -12,25 +12,28 @@ export function TopProgressBar() {
       setVisible(true);
       return;
     }
-    // keep the bar visible for a moment after navigation to avoid flicker
-    const t = setTimeout(() => setVisible(false), 400);
+    const t = setTimeout(() => setVisible(false), 500);
     return () => clearTimeout(t);
   }, [pending]);
 
   return (
     <div
-      aria-hidden={!visible}
-      className="pointer-events-none fixed top-0 z-[120] h-0.5 w-full overflow-hidden bg-transparent"
-      style={{ height: 2 }}
+      aria-live="polite"
+      aria-label="Loading"
+      className={`fixed top-0 z-[120] h-1 w-full overflow-hidden bg-transparent transition-opacity duration-200 ${
+        visible ? "opacity-100" : "opacity-0"
+      }`}
     >
-      <div
-        className={`h-full w-3/4 min-w-24 animate-pulse rounded-full bg-brand-600 transition-all duration-200 ${
-          visible ? "scale-100 opacity-100" : "scale-0 opacity-0"
-        }`}
-        style={{
-          animationDuration: "0.9s",
-        }}
-      />
+      <div className="absolute inset-0 flex h-full w-3/4 min-w-24 items-center overflow-hidden rounded-full bg-brand-600">
+        <div
+          className="h-full w-1/3 animate-[shimmer_1.4s_ease-in-out_infinite] rounded-full bg-white/25"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, transparent, rgba(255 255 255 / 0.35), transparent)",
+            backgroundSize: "200% 100%",
+          }}
+        />
+      </div>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
 import { CashflowChart, CategoryDonut, ProgressBar } from "~/components/charts";
 import { Card, EmptyState, PageLoader, StatCard } from "~/components/ui/primitives";
 import { fmtDate, money } from "~/server/lib/format";
+import { useCurrency } from "~/components/currency-context";
 import { api } from "~/trpc/react";
 
 const taskBadge: Record<string, string> = {
@@ -27,6 +28,7 @@ const taskBadge: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const currency = useCurrency();
   const { data, isLoading } = api.dashboard.overview.useQuery();
 
   if (isLoading || !data) return <PageLoader />;
@@ -44,7 +46,7 @@ export default function DashboardPage() {
         <StatCard label="Passwords stored" value={String(data.stats.passwords)} icon={LockKeyhole} tone="brand" />
         <StatCard label="Notes saved" value={String(data.stats.notes)} icon={StickyNote} tone="violet" />
         <StatCard label="Documents" value={String(data.stats.documents)} icon={FolderLock} tone="green" />
-        <StatCard label="Monthly spending" value={`$${money(monthlySpend)}`} icon={ReceiptText} tone="red" />
+        <StatCard label="Monthly spending" value={money(monthlySpend, currency)} icon={ReceiptText} tone="red" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -88,7 +90,7 @@ export default function DashboardPage() {
                     <div className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</div>
                     <div className="text-xs text-slate-400">{fmtDate(s.nextBilling)}</div>
                   </div>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-white">${money(s.amount)}</span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white">{money(s.amount, currency)}</span>
                 </li>
               ))}
             </ul>
@@ -148,7 +150,7 @@ export default function DashboardPage() {
             <div>
               <div className="mb-1.5 flex items-center justify-between text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-200">Saved so far</span>
-                <span className="font-semibold text-slate-900 dark:text-white">${money(saved)}</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{money(saved, currency)}</span>
               </div>
               <ProgressBar value={data.finance.goalSaved} max={data.finance.goalTarget} />
               <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
@@ -160,7 +162,7 @@ export default function DashboardPage() {
               <div className="mb-1.5 flex items-center justify-between text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-200">This month</span>
                 <span className="font-semibold text-slate-900 dark:text-white">
-                  {monthlyIncome >= monthlySpend ? "+" : ""}${money(monthlyIncome - monthlySpend)}
+                  {monthlyIncome >= monthlySpend ? "+" : ""}{money(monthlyIncome - monthlySpend, currency)}
                 </span>
               </div>
               <ProgressBar value={monthlySpend} max={Math.max(1, monthlyIncome)} />

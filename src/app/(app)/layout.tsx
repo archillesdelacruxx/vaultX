@@ -16,6 +16,7 @@ export default async function AppLayout({
       role={session.user.role}
       userName={session.user.name ?? "User"}
       userEmail={session.user.email ?? ""}
+      currency={session.user.currency ?? "USD"}
     >
       {children}
     </AppShell>

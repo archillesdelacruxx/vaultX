@@ -18,7 +18,8 @@ import { ProgressBar } from "~/components/charts";
 import { useConfirm } from "~/components/ui/confirm";
 import { useToast } from "~/components/ui/toast";
 import { downloadCsv, downloadXls } from "~/lib/export";
-import { fmtDate, money, toDateInput } from "~/server/lib/format";
+import { fmtDate, money, moneyAmount, toDateInput } from "~/server/lib/format";
+import { useCurrency } from "~/components/currency-context";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 type Row = RouterOutputs["goals"]["list"]["rows"][number];
@@ -32,6 +33,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function GoalsPage() {
+  const currency = useCurrency();
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
@@ -137,8 +139,8 @@ export default function GoalsPage() {
     () =>
       data?.rows.map((r) => ({
         title: r.title,
-        current: money(r.savedAmount),
-        target: money(r.targetAmount),
+        current: moneyAmount(r.savedAmount),
+        target: moneyAmount(r.targetAmount),
         deadline: r.deadline ? fmtDate(r.deadline) : "",
         status: r.status,
       })) ?? [],
@@ -225,8 +227,8 @@ export default function GoalsPage() {
                   </div>
                   <div className="flex-1 px-4 pb-4">
                     <div className="mb-2 flex items-center justify-between text-sm">
-                      <span className="font-semibold text-slate-900 dark:text-white">${money(row.savedAmount)}</span>
-                      <span className="text-xs text-slate-400">of ${money(row.targetAmount)}</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">{money(row.savedAmount, currency)}</span>
+                      <span className="text-xs text-slate-400">of {money(row.targetAmount, currency)}</span>
                     </div>
                     <ProgressBar value={row.savedAmount} max={row.targetAmount} />
                     <div className="mt-2 text-xs font-medium text-slate-400">{pct}% complete</div>

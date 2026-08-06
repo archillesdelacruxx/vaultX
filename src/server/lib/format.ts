@@ -1,5 +1,54 @@
-/** Format a Decimal/number as money with 2 decimals. */
-export function money(value: number | string | null | undefined): string {
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  PHP: "₱",
+  EUR: "€",
+  JPY: "¥",
+  GBP: "£",
+  CNY: "¥",
+  AUD: "A$",
+  CAD: "C$",
+  INR: "₹",
+  KRW: "₩",
+  SGD: "S$",
+};
+
+export const CURRENCY_OPTIONS = [
+  "USD",
+  "PHP",
+  "EUR",
+  "JPY",
+  "GBP",
+  "CNY",
+  "AUD",
+  "CAD",
+  "INR",
+  "KRW",
+  "SGD",
+  "Other",
+];
+
+/** Symbol for a currency code. For "Other", the value itself is treated as a custom symbol. */
+export function currencySymbol(currency: string | null | undefined): string {
+  if (!currency) return "$";
+  return CURRENCY_SYMBOLS[currency] ?? currency;
+}
+
+/** Format a Decimal/number as money with the currency symbol prepended. */
+export function money(
+  value: number | string | null | undefined,
+  currency: string | null | undefined = "USD",
+): string {
+  const sym = currencySymbol(currency);
+  return `${sym}${Number(value ?? 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/** Format a Decimal/number as a bare numeric string (no currency symbol), for exports/tables. */
+export function moneyAmount(
+  value: number | string | null | undefined,
+): string {
   return Number(value ?? 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

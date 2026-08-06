@@ -2,10 +2,13 @@
 
 import { KeyRound, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Card } from "~/components/ui/primitives";
 import { useConfirm } from "~/components/ui/confirm";
 import { useToast } from "~/components/ui/toast";
+import { CURRENCY_OPTIONS } from "~/server/lib/format";
+import { cn } from "~/lib/cn";
 import { api } from "~/trpc/react";
 
 const EMPTY_PASSWORD = { currentPassword: "", newPassword: "", confirm: "" };
@@ -13,8 +16,13 @@ const EMPTY_PASSWORD = { currentPassword: "", newPassword: "", confirm: "" };
 export default function SettingsPage() {
   const toast = useToast();
   const confirm = useConfirm();
+  const utils = api.useUtils();
+  const router = useRouter();
 
   const [password, setPassword] = useState(EMPTY_PASSWORD);
+
+  const { data: me } = api.auth.me.useQuery(undefined, { staleTime: 60_000 });
+  const currency = me?.currency ?? "USD";
 
   const changePassword = api.auth.changePassword.useMutation({
     onSuccess: () => {
@@ -24,9 +32,22 @@ export default function SettingsPage() {
     onError: (e) => toast("error", e.message),
   });
 
+  const updateProfile = api.auth.updateProfile.useMutation({
+    onSuccess: () => {
+      toast("success", "Profile updated.");
+      void utils.auth.me.invalidate();
+      void router.refresh();
+    },
+    onError: (e) => toast("error", e.message),
+  });
+
   const deleteAccount = api.auth.deleteAccount.useMutation({
     onError: (e) => toast("error", e.message),
   });
+
+  const handleChangeCurrency = (next: string) => {
+    updateProfile.mutate({ name: me?.name ?? "", currency: next });
+  };
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +115,35 @@ export default function SettingsPage() {
             <KeyRound className="h-4 w-4" /> Change password
           </button>
         </form>
+      </Card>
+
+      <Card
+        title="Currency preference"
+        subtitle="The currency used across reports, exports, and the AI assistant."
+      >
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            {CURRENCY_OPTIONS.filter((c) => c !== "Other").map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => handleChangeCurrency(c)}
+                disabled={updateProfile.isPending || currency === c}
+                className={cn(
+                  "btn",
+                  currency === c
+                    ? "btn-primary"
+                    : "btn-secondary",
+                )}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400">
+            Currently: <span className="font-medium text-slate-600 dark:text-slate-300">{currency}</span>
+          </p>
+        </div>
       </Card>
 
       <Card

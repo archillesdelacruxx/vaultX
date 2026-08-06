@@ -126,20 +126,29 @@ export const authRouter = createTRPCRouter({
     }),
 
   updateProfile: protectedProcedure
-    .input(z.object({ name: z.string().min(2).max(100) }))
+    .input(
+      z.object({
+        name: z.string().min(2).max(100),
+        currency: z.string().min(1).max(3).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      const data: { name: string; currency?: string } = {
+        name: input.name.trim(),
+      };
+      if (input.currency) data.currency = input.currency;
       await db.users.update({
         where: { id: ctx.session.user.id },
-        data: { name: input.name.trim() },
+        data,
       });
       await audit(Number(ctx.session.user.id), "auth.profile_update", "users", Number(ctx.session.user.id));
-      return { ok: true };
+      return { ok: true, currency: data.currency ?? ctx.session.user.currency };
     }),
 
   me: protectedProcedure.query(async ({ ctx }) => {
     const user = await db.users.findUnique({
       where: { id: ctx.session.user.id },
-      select: { id: true, name: true, email: true, role: true, created_at: true },
+      select: { id: true, name: true, email: true, role: true, currency: true, created_at: true },
     });
     if (!user) throw new Error("User not found.");
     return {
@@ -147,6 +156,7 @@ export const authRouter = createTRPCRouter({
       name: user.name,
       email: user.email,
       role: user.role,
+      currency: String(user.currency ?? "USD"),
       createdAt: user.created_at,
     };
   }),

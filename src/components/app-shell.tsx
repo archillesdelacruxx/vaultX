@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AiAssistant } from "~/components/ai/assistant";
+import { CurrencyProvider } from "~/components/currency-context";
 import { TopProgressBar } from "~/components/top-progress-bar";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { Sidebar } from "~/components/sidebar";
@@ -34,11 +35,13 @@ export function AppShell({
   role,
   userName,
   userEmail,
+  currency,
   children,
 }: {
   role: string;
   userName: string;
   userEmail: string;
+  currency: string;
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -80,9 +83,10 @@ export function AppShell({
   })();
 
   return (
-    <>
-      <TopProgressBar />
-      <div className="min-h-screen">
+    <CurrencyProvider currency={currency}>
+      <>
+        <TopProgressBar />
+        <div className="min-h-screen">
         <Sidebar
         role={role}
         open={sidebarOpen}
@@ -168,6 +172,7 @@ export function AppShell({
 
       <AiAssistant />
     </div>
-    </>
+      </>
+    </CurrencyProvider>
   );
 }

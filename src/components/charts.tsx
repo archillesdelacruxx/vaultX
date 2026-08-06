@@ -2,13 +2,16 @@
 
 import { useMemo } from "react";
 
+import { useCurrency } from "~/components/currency-context";
 import { cn } from "~/lib/cn";
+import { moneyAmount } from "~/server/lib/format";
 
 export function CashflowChart({
   data,
 }: {
   data: Array<{ month: Date; income: number; expenses: number }>;
 }) {
+  const currency = useCurrency();
   const { max, bars } = useMemo(() => {
     const months = data.map((d) => {
       const label = new Date(d.month).toLocaleDateString("en-US", { month: "short" });
@@ -38,12 +41,12 @@ export function CashflowChart({
             <div key={b.month.toString()} className="flex flex-1 flex-col items-center gap-1">
               <div className="flex h-[140px] w-full items-end justify-center gap-1.5">
                 <div
-                  title={`${b.label} income: ${b.income.toFixed(2)}`}
+                  title={`${b.label} income: ${moneyAmount(b.income)} ${currency}`}
                   className="w-3 rounded-t bg-brand-600 transition-all"
                   style={{ height: incH }}
                 />
                 <div
-                  title={`${b.label} expenses: ${b.expenses.toFixed(2)}`}
+                  title={`${b.label} expenses: ${moneyAmount(b.expenses)} ${currency}`}
                   className="w-3 rounded-t bg-red-400 transition-all"
                   style={{ height: expH }}
                 />

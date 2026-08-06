@@ -12,16 +12,15 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Modal } from "~/components/ui/modal";
-import { PaginationBar } from "~/components/ui/pagination";
-import { EmptyState } from "~/components/ui/primitives";
-import { useConfirm } from "~/components/ui/confirm";
-import { useToast } from "~/components/ui/toast";
+import { downloadCsv, downloadXls } from "~/lib/export";
+import { fmtDate } from "~/server/lib/format";
+import { api, type RouterOutputs } from "~/trpc/react";
 import { VaultPinModal } from "~/components/vault/vault-pin-modal";
 import { useVaultLock } from "~/components/vault/use-vault-lock";
 import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
 
 type Note = RouterOutputs["notes"]["list"]["rows"][number];
+
 
 export default function NotesPage() {
   const [q, setQ] = useState("");

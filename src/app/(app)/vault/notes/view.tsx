@@ -18,6 +18,8 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { VaultPinModal } from "~/components/vault/vault-pin-modal";
 import { useVaultLock } from "~/components/vault/use-vault-lock";
 import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
+import { useConfirm } from "~/components/ui/confirm";
+import { useToast } from "~/components/ui/toast";
 
 type Note = RouterOutputs["notes"]["list"]["rows"][number];
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { audit } from "~/server/lib/audit";
+import { getClientIp, throwIfRateLimited } from "~/server/lib/rate-limit";
 import { TRPCError } from "@trpc/server";
 
 const registerSchema = z.object({
@@ -32,7 +33,11 @@ function hashToken(token: string) {
 export const authRouter = createTRPCRouter({
   register: publicProcedure
     .input(registerSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      throwIfRateLimited(`register:${getClientIp(ctx.headers)}`, {
+        limit: 5,
+        windowMs: 60_000,
+      });
       const email = input.email.toLowerCase().trim();
       const exists = await db.users.findFirst({ where: { email } });
       if (exists) {
@@ -60,7 +65,11 @@ export const authRouter = createTRPCRouter({
 
   forgotPassword: publicProcedure
     .input(forgotSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      throwIfRateLimited(`forgot:${getClientIp(ctx.headers)}`, {
+        limit: 5,
+        windowMs: 60_000,
+      });
       const email = input.email.toLowerCase().trim();
       const user = await db.users.findFirst({ where: { email } });
       if (!user) return { ok: true, resetUrl: null }; // never leak account existence
@@ -84,7 +93,11 @@ export const authRouter = createTRPCRouter({
 
   resetPassword: publicProcedure
     .input(resetSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      throwIfRateLimited(`reset:${getClientIp(ctx.headers)}`, {
+        limit: 5,
+        windowMs: 60_000,
+      });
       const reset = await db.password_resets.findFirst({
         where: {
           token_hash: hashToken(input.token),
@@ -177,6 +190,10 @@ export const authRouter = createTRPCRouter({
   setScreenPin: protectedProcedure
     .input(z.object({ pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits.") }))
     .mutation(async ({ ctx, input }) => {
+      throwIfRateLimited(`pin:${getClientIp(ctx.headers)}`, {
+        limit: 10,
+        windowMs: 60_000,
+      });
       const pinHash = await bcrypt.hash(input.pin, 10);
       await db.users.update({
         where: { id: ctx.session.user.id },
@@ -189,6 +206,10 @@ export const authRouter = createTRPCRouter({
   verifyScreenPin: protectedProcedure
     .input(z.object({ pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits.") }))
     .mutation(async ({ ctx, input }) => {
+      throwIfRateLimited(`pin:${getClientIp(ctx.headers)}`, {
+        limit: 10,
+        windowMs: 60_000,
+      });
       const user = await db.users.findUnique({
         where: { id: ctx.session.user.id },
         select: { screen_pin_hash: true },
@@ -203,6 +224,10 @@ export const authRouter = createTRPCRouter({
   removeScreenPin: protectedProcedure
     .input(z.object({ pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits.") }))
     .mutation(async ({ ctx, input }) => {
+      throwIfRateLimited(`pin:${getClientIp(ctx.headers)}`, {
+        limit: 10,
+        windowMs: 60_000,
+      });
       const user = await db.users.findUnique({
         where: { id: ctx.session.user.id },
         select: { screen_pin_hash: true },
@@ -225,6 +250,10 @@ export const authRouter = createTRPCRouter({
   resetScreenPinWithPassword: protectedProcedure
     .input(z.object({ password: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      throwIfRateLimited(`pin:${getClientIp(ctx.headers)}`, {
+        limit: 10,
+        windowMs: 60_000,
+      });
       const user = await db.users.findUnique({ where: { id: ctx.session.user.id } });
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });
       const ok = await bcrypt.compare(input.password, user.password_hash);

@@ -18,6 +18,7 @@ import { EmptyState } from "~/components/ui/primitives";
 import { useConfirm } from "~/components/ui/confirm";
 import { useToast } from "~/components/ui/toast";
 import { downloadCsv, downloadXls } from "~/lib/export";
+import { getPreviewUrl } from "~/lib/preview";
 import { fmtDate, humanSize } from "~/server/lib/format";
 import { api, type RouterOutputs } from "~/trpc/react";
 
@@ -178,7 +179,21 @@ export default function DocumentsPage() {
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {data.rows.map((row) => (
-              <div key={row.id} className="card flex flex-col transition hover:shadow-md">
+              <div key={row.id} className="card flex flex-col overflow-hidden transition hover:shadow-md">
+                {getPreviewUrl(row.filePath ?? "") ? (
+                  <div className="relative aspect-video w-full bg-slate-100 dark:bg-slate-800">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getPreviewUrl(row.filePath ?? "")!}
+                      alt={row.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.parentElement?.remove();
+                      }}
+                    />
+                  </div>
+                ) : null}
                 <div className="flex items-start justify-between gap-2 p-4 pb-2">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
@@ -270,6 +285,19 @@ export default function DocumentsPage() {
               placeholder="https://drive.google.com/… or /files/id.pdf"
               maxLength={500}
             />
+            {getPreviewUrl(form.filePath) ? (
+              <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={getPreviewUrl(form.filePath) ?? ""}
+                  alt="Preview"
+                  className="max-h-48 w-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

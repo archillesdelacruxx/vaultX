@@ -12,12 +12,12 @@ export const metadata: Metadata = {
   description: "Your secure personal vault: passwords, notes, finances and more.",
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico" },
+      { url: "/icon.svg?v=2", type: "image/svg+xml" },
+      { url: "/favicon.ico?v=2" },
     ],
-    shortcut: ["/icon.svg"],
+    shortcut: ["/icon.svg?v=2"],
     apple: [
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon.svg?v=2", type: "image/svg+xml" },
     ],
   },
 };

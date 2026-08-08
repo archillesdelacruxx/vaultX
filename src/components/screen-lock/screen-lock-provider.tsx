@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { ScreenLockModal } from "./screen-lock-modal";
-import { api } from "~/trpc/react";
+import { useScreenPin } from "~/lib/db/pin-hooks";
 
 interface ScreenLockContextType {
   isLocked: boolean;
@@ -24,11 +24,7 @@ export function ScreenLockProvider({ children, userName }: { children: React.Rea
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [initialized, setInitialized] = useState<boolean>(false);
 
-  const { data: pinData, refetch } = api.auth.hasScreenPin.useQuery(undefined, {
-    staleTime: 60_000,
-  });
-
-  const hasPin = pinData?.hasPin ?? false;
+  const { hasPin } = useScreenPin();
 
   const lockScreen = useCallback(() => {
     if (!hasPin) return; // no PIN set -> nothing to lock
@@ -43,8 +39,7 @@ export function ScreenLockProvider({ children, userName }: { children: React.Rea
       sessionStorage.setItem("vaultx_screen_unlocked", "true");
     }
     setIsLocked(false);
-    void refetch();
-  }, [refetch]);
+  }, []);
 
   // Initial check on mount
   useEffect(() => {

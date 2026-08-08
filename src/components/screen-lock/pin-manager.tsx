@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ActionSpinner } from "~/components/ui/action-spinner";
 import { PinPad, type PinPadHandle } from "~/components/ui/pin-pad";
 import { useToast } from "~/components/ui/toast";
-import { api } from "~/trpc/react";
+import { useScreenPin } from "~/lib/db/pin-hooks";
 
 type Step = "verify" | "first" | "confirm";
 
@@ -21,14 +21,10 @@ export function PinManagerModal({ open, mode, onClose, onSaved }: PinManagerModa
   const toast = useToast();
   const [step, setStep] = useState<Step>("verify");
   const [firstPin, setFirstPin] = useState("");
+  const [isPending, setIsPending] = useState(false);
   const padRef = useRef<PinPadHandle>(null);
 
-  const { data: hasPinData } = api.auth.hasScreenPin.useQuery();
-  const hasPin = hasPinData?.hasPin ?? false;
-
-  const verifyMutation = api.auth.verifyScreenPin.useMutation();
-  const setPinMutation = api.auth.setScreenPin.useMutation();
-  const removePinMutation = api.auth.removeScreenPin.useMutation();
+  const { hasPin, verify, setPin, removePin } = useScreenPin();
 
   useEffect(() => {
     if (open) {
@@ -41,26 +37,25 @@ export function PinManagerModal({ open, mode, onClose, onSaved }: PinManagerModa
 
   const handleComplete = async (enteredPin: string) => {
     if (step === "verify") {
-      if (mode === "remove") {
-        try {
-          await removePinMutation.mutateAsync({ pin: enteredPin });
+      setIsPending(true);
+      try {
+        if (mode === "remove") {
+          await removePin(enteredPin);
           toast("success", "Screen lock PIN removed.");
           onSaved();
           onClose();
-        } catch (err: unknown) {
-          padRef.current?.fail(err instanceof Error ? err.message : "Incorrect PIN.");
+          return;
         }
-        return;
-      }
-      try {
-        const res = await verifyMutation.mutateAsync({ pin: enteredPin });
+        const res = await verify(enteredPin);
         if (!res.valid) {
           padRef.current?.fail(res.message ?? "Incorrect PIN. Please try again.");
           return;
         }
         setStep("first");
-      } catch {
-        padRef.current?.fail("Verification failed. Please try again.");
+      } catch (err: unknown) {
+        padRef.current?.fail(err instanceof Error ? err.message : "Incorrect PIN.");
+      } finally {
+        setIsPending(false);
       }
       return;
     }
@@ -78,13 +73,16 @@ export function PinManagerModal({ open, mode, onClose, onSaved }: PinManagerModa
       return;
     }
 
+    setIsPending(true);
     try {
-      await setPinMutation.mutateAsync({ pin: enteredPin });
+      await setPin(enteredPin);
       toast("success", hasPin ? "Screen lock PIN updated." : "Screen lock PIN set.");
       onSaved();
       onClose();
     } catch (err: unknown) {
       padRef.current?.fail(err instanceof Error ? err.message : "Failed to set PIN.");
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -105,8 +103,6 @@ export function PinManagerModal({ open, mode, onClose, onSaved }: PinManagerModa
         : step === "first"
           ? "Choose a 6-digit numeric PIN."
           : "Re-enter your new 6-digit PIN.";
-
-  const isPending = verifyMutation.isPending || setPinMutation.isPending || removePinMutation.isPending;
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-lg">

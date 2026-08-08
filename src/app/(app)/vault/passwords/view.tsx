@@ -15,7 +15,7 @@ import {
   Wand2,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Modal } from "~/components/ui/modal";
 import { PaginationBar } from "~/components/ui/pagination";
@@ -24,13 +24,24 @@ import { useConfirm } from "~/components/ui/confirm";
 import { useToast } from "~/components/ui/toast";
 import { downloadCsv, downloadXls } from "~/lib/export";
 import { fmtDate } from "~/server/lib/format";
-import { api, type RouterOutputs } from "~/trpc/react";
+import { api } from "~/trpc/react";
+import { newClientId, type LocalRecord } from "~/lib/db/db";
+import { useLocalEntity } from "~/lib/db/use-local-entity";
 
 import { VaultPinModal } from "~/components/vault/vault-pin-modal";
 import { useVaultLock } from "~/components/vault/use-vault-lock";
 import { ActionSpinner, LoadingOverlay } from "~/components/ui/action-spinner";
 
-type PasswordRow = RouterOutputs["passwords"]["list"]["rows"][number];
+interface PasswordRowData extends LocalRecord {
+  title: string;
+  username?: string | null;
+  password?: string | null;
+  url?: string | null;
+  notes?: string | null;
+  created_at?: Date | null;
+}
+
+type PasswordRow = PasswordRowData;
 
 
 const EMPTY_FORM = {
@@ -111,62 +122,40 @@ export default function PasswordsPage() {
   const [editing, setEditing] = useState<PasswordRow | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [showPw, setShowPw] = useState(false);
-  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
 
   const toast = useToast();
   const confirm = useConfirm();
 
   const utils = api.useUtils();
-  const { data, isLoading } = api.passwords.list.useQuery(
-    { q: debouncedQ, page },
-    { staleTime: 30_000 },
-  );
+  const { rows, isLoading, upsert, remove } = useLocalEntity("passwords");
 
-  const editDetail = api.passwords.get.useQuery(
-    { id: editing?.id ?? 0 },
-    { enabled: editing !== null },
-  );
+  const PAGE_SIZE = 12;
 
-  useEffect(() => {
-    if (editing && editDetail.data?.id === editing.id) {
-      setForm({
-        title: editDetail.data.title,
-        username: editDetail.data.username ?? "",
-        password: editDetail.data.password ?? "",
-        url: editDetail.data.url ?? "",
-        notes: editDetail.data.notes ?? "",
-      });
-      setModalOpen(true);
-    }
-  }, [editDetail.data, editing]);
-
-  const create = api.passwords.create.useMutation({
-    onSuccess: () => {
-      toast("success", "Password saved.");
-      closeModal();
-      void utils.passwords.list.invalidate();
-      void utils.dashboard.overview.invalidate();
-    },
-    onError: (e) => toast("error", e.message),
-  });
-
-  const update = api.passwords.update.useMutation({
-    onSuccess: () => {
-      toast("success", "Password updated.");
-      closeModal();
-      void utils.passwords.list.invalidate();
-    },
-    onError: (e) => toast("error", e.message),
-  });
-
-  const remove = api.passwords.remove.useMutation({
-    onSuccess: () => {
-      toast("success", "Password deleted.");
-      void utils.passwords.list.invalidate();
-      void utils.dashboard.overview.invalidate();
-    },
-    onError: (e) => toast("error", e.message),
-  });
+  const list = useMemo(() => {
+    const needle = debouncedQ.trim().toLowerCase();
+    const filtered = (rows as PasswordRow[]).filter((r) => {
+      if (!needle) return true;
+      const title = String(r.title ?? "").toLowerCase();
+      const username = String(r.username ?? "").toLowerCase();
+      const url = String(r.url ?? "").toLowerCase();
+      return (
+        title.includes(needle) ||
+        username.includes(needle) ||
+        url.includes(needle)
+      );
+    });
+    const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const safePage = Math.min(page, pages);
+    const start = (safePage - 1) * PAGE_SIZE;
+    return {
+      rows: filtered.slice(start, start + PAGE_SIZE),
+      total: filtered.length,
+      pages,
+      page: safePage,
+    };
+  }, [rows, debouncedQ, page]);
 
   const search = () => {
     setPage(1);
@@ -188,12 +177,20 @@ export default function PasswordsPage() {
     requestUnlock(() => {
       setShowPw(false);
       setEditing(row);
+      setForm({
+        title: row.title ?? "",
+        username: row.username ?? "",
+        password: row.password ?? "",
+        url: row.url ?? "",
+        notes: row.notes ?? "",
+      });
+      setModalOpen(true);
     });
   };
 
-  const toggleReveal = (id: number) => {
+  const toggleReveal = (id: number | null) => {
     requestUnlock(() => {
-      setRevealed((r) => ({ ...r, [id]: !r[id] }));
+      setRevealed((r) => ({ ...r, [String(id)]: !r[String(id)] }));
     });
   };
 
@@ -202,13 +199,39 @@ export default function PasswordsPage() {
     setEditing(null);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = { ...form, password: form.password.trim() };
-    if (editing) {
-      update.mutate({ id: editing.id, ...payload });
-    } else {
-      create.mutate(payload);
+    setSaving(true);
+    try {
+      const payload = { ...form, password: form.password.trim() };
+      if (editing) {
+        await upsert(editing, payload);
+        toast("success", "Password updated.");
+      } else {
+        await upsert(
+          {
+            clientId: newClientId(),
+            id: null,
+            title: "",
+            username: null,
+            password: null,
+            url: null,
+            notes: null,
+            updated_at: new Date(),
+            created_at: null,
+          },
+          payload,
+        );
+        toast("success", "Password saved.");
+      }
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        void utils.dashboard.overview.invalidate();
+      }
+      closeModal();
+    } catch (err: unknown) {
+      toast("error", err instanceof Error ? err.message : "Could not save password.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -217,20 +240,27 @@ export default function PasswordsPage() {
       title: "Delete password",
       message: `Permanently delete "${row.title}"? This cannot be undone.`,
     });
-    if (ok) remove.mutate({ id: row.id });
+    if (!ok) return;
+    try {
+      await remove(row);
+      toast("success", "Password deleted.");
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        void utils.dashboard.overview.invalidate();
+      }
+    } catch (err: unknown) {
+      toast("error", err instanceof Error ? err.message : "Could not delete password.");
+    }
   };
 
   const exportRows = useMemo(() => {
-    return (
-      data?.rows.map((p) => ({
-        title: p.title,
-        username: p.username ?? "",
-        url: p.url ?? "",
-        notes: p.notes ?? "",
-        updated: fmtDate(p.updated_at),
-      })) ?? []
-    );
-  }, [data]);
+    return (rows as PasswordRow[]).map((p) => ({
+      title: String(p.title ?? ""),
+      username: String(p.username ?? ""),
+      url: String(p.url ?? ""),
+      notes: String(p.notes ?? ""),
+      updated: fmtDate(p.updated_at),
+    }));
+  }, [rows]);
 
   const doExport = (format: "csv" | "xls") => {
     const headers = ["Title", "Username", "URL", "Notes", "Updated"];
@@ -246,7 +276,7 @@ export default function PasswordsPage() {
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Passwords</h2>
             <p className="mt-0.5 text-xs text-slate-400">
-              {data?.total ?? 0} saved · encrypted at rest
+              {list.total} saved · encrypted at rest
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -281,7 +311,7 @@ export default function PasswordsPage() {
             <div key={i} className="card h-44 animate-pulse bg-slate-100 dark:bg-slate-800" />
           ))}
         </div>
-      ) : !data || data.rows.length === 0 ? (
+      ) : list.rows.length === 0 ? (
         <div className="card">
           <EmptyState
             icon={LockKeyhole}
@@ -292,8 +322,8 @@ export default function PasswordsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {data.rows.map((row) => {
-              const isRevealed = !!revealed[row.id];
+            {list.rows.map((row) => {
+              const isRevealed = !!revealed[String(row.id)];
               const hasPassword = row.password !== "";
               return (
                 <div key={row.id} className="card flex flex-col transition hover:shadow-md">
@@ -321,7 +351,7 @@ export default function PasswordsPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-0.5">
-                      <CopyButton value={row.password} title="Copy password" />
+                      <CopyButton value={row.password ?? ""} title="Copy password" />
                       <button type="button" className="icon-btn" title="Edit" onClick={() => openEdit(row)}>
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -374,7 +404,9 @@ export default function PasswordsPage() {
               );
             })}
           </div>
-          {data ? <PaginationBar page={data.page} pages={data.pages} total={data.total} onChange={setPage} /> : null}
+          {list.rows.length > 0 ? (
+            <PaginationBar page={list.page} pages={list.pages} total={list.total} onChange={setPage} />
+          ) : null}
         </>
       )}
 
@@ -385,23 +417,23 @@ export default function PasswordsPage() {
         icon={<LockKeyhole className="h-5 w-5 text-brand-600" />}
         footer={
           <>
-            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={create.isPending || update.isPending}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={saving}>
               Cancel
             </button>
             <button
               type="submit"
               form="password-form"
               className="btn btn-primary min-w-[120px]"
-              disabled={create.isPending || update.isPending}
+              disabled={saving}
             >
-              {create.isPending || update.isPending ? <ActionSpinner className="mr-1.5" /> : null}
-              {create.isPending || update.isPending ? "Saving..." : "Save password"}
+              {saving ? <ActionSpinner className="mr-1.5" /> : null}
+              {saving ? "Saving..." : "Save password"}
             </button>
           </>
         }
       >
         <div className="relative">
-          <LoadingOverlay visible={create.isPending || update.isPending} text="Encrypting & saving password..." />
+          <LoadingOverlay visible={saving} text="Saving password..." />
           <form id="password-form" onSubmit={submit} className="space-y-4">
             <div>
               <label className="label">Site / Title</label>

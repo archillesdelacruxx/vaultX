@@ -88,6 +88,7 @@ export const journalRouter = createTRPCRouter({
           body: input.body,
           mood: input.mood ?? null,
           entry_date: input.entryDate ? new Date(input.entryDate) : new Date(),
+          updated_at: new Date(),
         },
       });
       await audit(Number(ctx.session.user.id), "journal.update", "journal", input.id);

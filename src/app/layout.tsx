@@ -10,6 +10,12 @@ import { TRPCReactProvider } from "~/trpc/react";
 export const metadata: Metadata = {
   title: "VaultX — Personal Digital Vault",
   description: "Your secure personal vault: passwords, notes, finances and more.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "VaultX",
+    statusBarStyle: "default",
+  },
   icons: {
     icon: [
       { url: "/icon.svg?v=2", type: "image/svg+xml" },

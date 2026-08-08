@@ -92,6 +92,7 @@ export const incomeRouter = createTRPCRouter({
           category: input.category ?? null,
           received_on: input.receivedOn ? new Date(input.receivedOn) : new Date(),
           notes: input.notes ?? null,
+          updated_at: new Date(),
         },
       });
       await audit(Number(ctx.session.user.id), "income.update", "income", input.id);

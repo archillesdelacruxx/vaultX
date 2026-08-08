@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { ActionSpinner } from "~/components/ui/action-spinner";
 import { PinPad, type PinPadHandle } from "~/components/ui/pin-pad";
-import { api } from "~/trpc/react";
+import { useScreenPin } from "~/lib/db/pin-hooks";
 
 interface ScreenLockModalProps {
   open: boolean;
@@ -17,10 +17,11 @@ export function ScreenLockModal({ open, onUnlocked, userName = "User" }: ScreenL
   const [showForgot, setShowForgot] = useState(false);
   const [password, setPassword] = useState("");
   const [forgotError, setForgotError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
   const padRef = useRef<PinPadHandle>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const verifyMutation = api.auth.verifyScreenPin.useMutation();
-  const resetMutation = api.auth.resetScreenPinWithPassword.useMutation();
+  const { verify, resetWithPassword } = useScreenPin();
 
   useEffect(() => {
     if (open) {
@@ -33,8 +34,9 @@ export function ScreenLockModal({ open, onUnlocked, userName = "User" }: ScreenL
   if (!open) return null;
 
   const handleComplete = async (enteredPin: string) => {
+    setIsVerifying(true);
     try {
-      const res = await verifyMutation.mutateAsync({ pin: enteredPin });
+      const res = await verify(enteredPin);
       if (res.valid) {
         onUnlocked();
       } else {
@@ -42,17 +44,22 @@ export function ScreenLockModal({ open, onUnlocked, userName = "User" }: ScreenL
       }
     } catch {
       padRef.current?.fail("Verification failed. Please try again.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError(null);
+    setIsResetting(true);
     try {
-      await resetMutation.mutateAsync({ password });
+      await resetWithPassword(password);
       onUnlocked();
     } catch (err: unknown) {
       setForgotError(err instanceof Error ? err.message : "Failed to reset PIN.");
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -81,15 +88,15 @@ export function ScreenLockModal({ open, onUnlocked, userName = "User" }: ScreenL
                 placeholder="Account password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={resetMutation.isPending}
+                disabled={isResetting}
                 autoFocus
                 autoComplete="current-password"
               />
               {forgotError ? (
                 <div className="text-xs font-semibold text-red-500 dark:text-red-400 animate-pulse">{forgotError}</div>
               ) : null}
-              <button type="submit" className="btn btn-primary w-full" disabled={resetMutation.isPending || !password}>
-                {resetMutation.isPending ? <ActionSpinner className="h-4 w-4" /> : null}
+              <button type="submit" className="btn btn-primary w-full" disabled={isResetting || !password}>
+                {isResetting ? <ActionSpinner className="h-4 w-4" /> : null}
                 Reset PIN
               </button>
               <button
@@ -100,14 +107,14 @@ export function ScreenLockModal({ open, onUnlocked, userName = "User" }: ScreenL
                   setForgotError(null);
                   setPassword("");
                 }}
-                disabled={resetMutation.isPending}
+                disabled={isResetting}
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Back to PIN
               </button>
             </form>
           ) : (
             <>
-              {verifyMutation.isPending ? (
+              {isVerifying ? (
                 <div className="my-6 flex items-center justify-center gap-2 text-xs text-slate-500">
                   <ActionSpinner className="h-4 w-4" /> Verifying...
                 </div>
@@ -115,7 +122,7 @@ export function ScreenLockModal({ open, onUnlocked, userName = "User" }: ScreenL
                 <PinPad
                   ref={padRef}
                   onComplete={(pin) => void handleComplete(pin)}
-                  disabled={verifyMutation.isPending}
+                  disabled={isVerifying}
                   resetKey={open}
                 />
               )}

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "~/components/app-shell";
 import { ScreenLockProvider } from "~/components/screen-lock/screen-lock-provider";
+import { SyncProvider } from "~/lib/db/sync-context";
 import { auth } from "~/server/auth";
 
 export default async function AppLayout({
@@ -13,15 +14,17 @@ export default async function AppLayout({
   if (!session?.user) redirect("/login");
 
   return (
-    <ScreenLockProvider userName={session.user.name ?? "User"}>
-      <AppShell
-        role={session.user.role}
-        userName={session.user.name ?? "User"}
-        userEmail={session.user.email ?? ""}
-        currency={session.user.currency ?? "USD"}
-      >
-        {children}
-      </AppShell>
-    </ScreenLockProvider>
+    <SyncProvider userId={Number(session.user.id)}>
+      <ScreenLockProvider userName={session.user.name ?? "User"}>
+        <AppShell
+          role={session.user.role}
+          userName={session.user.name ?? "User"}
+          userEmail={session.user.email ?? ""}
+          currency={session.user.currency ?? "USD"}
+        >
+          {children}
+        </AppShell>
+      </ScreenLockProvider>
+    </SyncProvider>
   );
 }

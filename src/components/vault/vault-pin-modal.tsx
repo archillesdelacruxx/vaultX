@@ -1,11 +1,11 @@
 "use client";
 
 import { Lock } from "lucide-react";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { ActionSpinner } from "~/components/ui/action-spinner";
 import { PinPad, type PinPadHandle } from "~/components/ui/pin-pad";
-import { api } from "~/trpc/react";
+import { useScreenPin } from "~/lib/db/pin-hooks";
 
 interface VaultPinModalProps {
   open: boolean;
@@ -21,20 +21,21 @@ export function VaultPinModal({
   description = "Enter your screen lock PIN to unlock this vault item.",
 }: VaultPinModalProps) {
   const padRef = useRef<PinPadHandle>(null);
-  const verifyMutation = api.auth.verifyScreenPin.useMutation();
-  const { data: hasPinData } = api.auth.hasScreenPin.useQuery();
+  const [isVerifying, setIsVerifying] = useState(false);
+  const { hasPin, verify } = useScreenPin();
 
   useEffect(() => {
-    if (open && hasPinData?.hasPin === false) {
+    if (open && !hasPin) {
       onSuccess();
     }
-  }, [open, hasPinData, onSuccess]);
+  }, [open, hasPin, onSuccess]);
 
   if (!open) return null;
 
   const handleComplete = async (enteredPin: string) => {
+    setIsVerifying(true);
     try {
-      const res = await verifyMutation.mutateAsync({ pin: enteredPin });
+      const res = await verify(enteredPin);
       if (res.valid) {
         onSuccess();
       } else {
@@ -42,6 +43,8 @@ export function VaultPinModal({
       }
     } catch {
       padRef.current?.fail("Verification failed. Please try again.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -56,7 +59,7 @@ export function VaultPinModal({
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-xs">{description}</p>
 
-          {verifyMutation.isPending ? (
+          {isVerifying ? (
             <div className="my-6 flex items-center justify-center gap-2 text-xs text-slate-500">
               <ActionSpinner className="h-4 w-4" /> Verifying...
             </div>
@@ -64,7 +67,7 @@ export function VaultPinModal({
             <PinPad
               ref={padRef}
               onComplete={(pin) => void handleComplete(pin)}
-              disabled={verifyMutation.isPending}
+              disabled={isVerifying}
               resetKey={open}
             />
           )}

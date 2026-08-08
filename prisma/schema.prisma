@@ -16,11 +16,13 @@ model api_keys {
   provider    String?  @db.VarChar(100)
   scopes      String?  @db.VarChar(190)
   notes       String?
+  client_id   String?  @db.VarChar(36)
   created_at  DateTime @default(now()) @db.Timestamptz(6)
   updated_at  DateTime @default(now()) @db.Timestamptz(6)
   users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_apikeys_user")
+  @@unique([client_id], map: "uq_apikeys_client")
 }
 
 model audit_logs {
@@ -52,11 +54,13 @@ model banking {
   account_holder     String?  @db.VarChar(190)
   branch             String?  @db.VarChar(190)
   notes              String?
+  client_id          String?  @db.VarChar(36)
   created_at         DateTime @default(now()) @db.Timestamptz(6)
   updated_at         DateTime @default(now()) @db.Timestamptz(6)
   users              users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_banking_user")
+  @@unique([client_id], map: "uq_banking_client")
 }
 
 model documents {
@@ -81,25 +85,30 @@ model emergency {
   phone_enc  String?
   address    String?  @db.VarChar(255)
   notes      String?
+  client_id  String?  @db.VarChar(36)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
   users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_emergency_user")
+  @@unique([client_id], map: "uq_emergency_client")
 }
 
 model expenses {
-  id         BigInt   @id @default(autoincrement())
+  id         BigInt    @id @default(autoincrement())
   user_id    BigInt
-  title      String   @db.VarChar(190)
-  amount     Decimal  @default(0) @db.Decimal(14, 2)
-  category   String?  @db.VarChar(60)
-  paid_on    DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  title      String    @db.VarChar(190)
+  amount     Decimal   @default(0) @db.Decimal(14, 2)
+  category   String?   @db.VarChar(60)
+  paid_on    DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
   notes      String?
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  client_id  String?   @db.VarChar(36)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id, paid_on], map: "idx_expenses_user")
+  @@unique([client_id], map: "uq_expenses_client")
 }
 
 model goals {
@@ -111,25 +120,30 @@ model goals {
   saved_amount  Decimal   @default(0) @db.Decimal(14, 2)
   deadline      DateTime? @db.Date
   status        String    @default("active") @db.VarChar(20)
+  client_id     String?   @db.VarChar(36)
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @default(now()) @db.Timestamptz(6)
   users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_goals_user")
+  @@unique([client_id], map: "uq_goals_client")
 }
 
 model income {
-  id          BigInt   @id @default(autoincrement())
+  id          BigInt    @id @default(autoincrement())
   user_id     BigInt
-  title       String   @db.VarChar(190)
-  amount      Decimal  @default(0) @db.Decimal(14, 2)
-  category    String?  @db.VarChar(60)
-  received_on DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  title       String    @db.VarChar(190)
+  amount      Decimal   @default(0) @db.Decimal(14, 2)
+  category    String?   @db.VarChar(60)
+  received_on DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
   notes       String?
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  client_id   String?   @db.VarChar(36)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id, received_on], map: "idx_income_user")
+  @@unique([client_id], map: "uq_income_client")
 }
 
 model journal {
@@ -139,10 +153,13 @@ model journal {
   body       String
   mood       String?  @db.VarChar(20)
   entry_date DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  client_id  String?  @db.VarChar(36)
   created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
   users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id, entry_date], map: "idx_journal_user")
+  @@unique([client_id], map: "uq_journal_client")
 }
 
 model licenses {
@@ -153,11 +170,13 @@ model licenses {
   licensed_to     String?   @db.VarChar(190)
   expiry          DateTime? @db.Date
   notes           String?
+  client_id       String?   @db.VarChar(36)
   created_at      DateTime  @default(now()) @db.Timestamptz(6)
   updated_at      DateTime  @default(now()) @db.Timestamptz(6)
   users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_licenses_user")
+  @@unique([client_id], map: "uq_licenses_client")
 }
 
 model notes {
@@ -167,11 +186,13 @@ model notes {
   content    String
   category   String?  @db.VarChar(60)
   pinned     Boolean  @default(false)
+  client_id  String?  @db.VarChar(36)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
   users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id, pinned], map: "idx_notes_user")
+  @@unique([client_id], map: "uq_notes_client")
 }
 
 model notifications {
@@ -207,11 +228,13 @@ model passwords {
   password_enc String?
   url          String?  @db.VarChar(500)
   notes        String?
+  client_id    String?  @db.VarChar(36)
   created_at   DateTime @default(now()) @db.Timestamptz(6)
   updated_at   DateTime @default(now()) @db.Timestamptz(6)
   users        users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_passwords_user")
+  @@unique([client_id], map: "uq_passwords_client")
 }
 
 model savings {
@@ -222,11 +245,13 @@ model savings {
   current_amount Decimal   @default(0) @db.Decimal(14, 2)
   deadline       DateTime? @db.Date
   status         String    @default("active") @db.VarChar(20)
+  client_id      String?   @db.VarChar(36)
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
   updated_at     DateTime  @default(now()) @db.Timestamptz(6)
   users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_savings_user")
+  @@unique([client_id], map: "uq_savings_client")
 }
 
 model subscriptions {
@@ -238,11 +263,13 @@ model subscriptions {
   next_billing  DateTime? @db.Date
   auto_renew    Boolean   @default(true)
   notes         String?
+  client_id     String?   @db.VarChar(36)
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @default(now()) @db.Timestamptz(6)
   users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id, next_billing], map: "idx_subs_user")
+  @@unique([client_id], map: "uq_subs_client")
 }
 
 model tasks {
@@ -254,11 +281,13 @@ model tasks {
   priority    String    @default("medium") @db.VarChar(10)
   due_date    DateTime? @db.Date
   tags        String?   @db.VarChar(190)
+  client_id   String?   @db.VarChar(36)
   created_at  DateTime  @default(now()) @db.Timestamptz(6)
   updated_at  DateTime  @default(now()) @db.Timestamptz(6)
   users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id, status], map: "idx_tasks_user")
+  @@unique([client_id], map: "uq_tasks_client")
 }
 
 model users {

@@ -22,9 +22,25 @@ import { useConfirm } from "~/components/ui/confirm";
 import { useToast } from "~/components/ui/toast";
 import { downloadCsv, downloadXls } from "~/lib/export";
 import { fmtDate } from "~/server/lib/format";
-import { api, type RouterOutputs } from "~/trpc/react";
+import { api } from "~/trpc/react";
+import { newClientId, type LocalRecord } from "~/lib/db/db";
+import { useLocalEntity } from "~/lib/db/use-local-entity";
 
-type Row = RouterOutputs["banking"]["list"]["rows"][number];
+interface RowData extends LocalRecord {
+  bankName: string;
+  accountType?: string | null;
+  accountNumber?: string | null;
+  cardNumber?: string | null;
+  cvv?: string | null;
+  expiry?: string | null;
+  pin?: string | null;
+  accountHolder?: string | null;
+  branch?: string | null;
+  notes?: string | null;
+  created_at?: Date | null;
+}
+
+type Row = RowData;
 
 const EMPTY_FORM = {
   bankName: "",
@@ -134,42 +150,37 @@ export default function BankingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [revealed, setRevealed] = useState<Record<number, { num?: boolean; sa?: boolean; cvv?: boolean }>>({});
+  const [revealed, setRevealed] = useState<Record<string, { num?: boolean; sa?: boolean; cvv?: boolean }>>({});
+  const [saving, setSaving] = useState(false);
 
   const toast = useToast();
   const confirm = useConfirm();
   const utils = api.useUtils();
 
-  const { data, isLoading } = api.banking.list.useQuery({ q: debouncedQ, page }, { staleTime: 30_000 });
+  const { rows, isLoading, upsert, remove } = useLocalEntity("banking");
 
-  const create = api.banking.create.useMutation({
-    onSuccess: () => {
-      toast("success", "Account saved.");
-      closeModal();
-      void utils.banking.list.invalidate();
-      void utils.dashboard.overview.invalidate();
-    },
-    onError: (e) => toast("error", e.message),
-  });
+  const PAGE_SIZE = 12;
 
-  const update = api.banking.update.useMutation({
-    onSuccess: () => {
-      toast("success", "Account updated.");
-      closeModal();
-      void utils.banking.list.invalidate();
-      void utils.dashboard.overview.invalidate();
-    },
-    onError: (e) => toast("error", e.message),
-  });
-
-  const remove = api.banking.remove.useMutation({
-    onSuccess: () => {
-      toast("success", "Account deleted.");
-      void utils.banking.list.invalidate();
-      void utils.dashboard.overview.invalidate();
-    },
-    onError: (e) => toast("error", e.message),
-  });
+  const list = useMemo(() => {
+    const needle = debouncedQ.trim().toLowerCase();
+    const filtered = (rows as Row[]).filter((r) => {
+      if (!needle) return true;
+      const bankName = String(r.bankName ?? "").toLowerCase();
+      const holder = String(r.accountHolder ?? "").toLowerCase();
+      const card = String(r.cardNumber ?? "").toLowerCase();
+      const sa = String(r.accountNumber ?? "").toLowerCase();
+      return bankName.includes(needle) || holder.includes(needle) || card.includes(needle) || sa.includes(needle);
+    });
+    const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const safePage = Math.min(page, pages);
+    const start = (safePage - 1) * PAGE_SIZE;
+    return {
+      rows: filtered.slice(start, start + PAGE_SIZE),
+      total: filtered.length,
+      pages,
+      page: safePage,
+    };
+  }, [rows, debouncedQ, page]);
 
   const openNew = () => {
     setEditing(null);
@@ -182,11 +193,11 @@ export default function BankingPage() {
     setForm({
       bankName: row.bankName,
       accountType: row.accountType ?? "",
-      accountNumber: row.accountNumber,
-      cardNumber: row.cardNumber,
-      cvv: row.cvv,
+      accountNumber: row.accountNumber ?? "",
+      cardNumber: row.cardNumber ?? "",
+      cvv: row.cvv ?? "",
       expiry: row.expiry ?? "",
-      pin: row.pin,
+      pin: row.pin ?? "",
       accountHolder: row.accountHolder ?? "",
       branch: row.branch ?? "",
       notes: row.notes ?? "",
@@ -199,12 +210,43 @@ export default function BankingPage() {
     setEditing(null);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editing) {
-      update.mutate({ id: editing.id, ...form });
-    } else {
-      create.mutate(form);
+    setSaving(true);
+    try {
+      if (editing) {
+        await upsert(editing, { ...form });
+        toast("success", "Account updated.");
+      } else {
+        await upsert(
+          {
+            clientId: newClientId(),
+            id: null,
+            bankName: "",
+            accountType: null,
+            accountNumber: null,
+            cardNumber: null,
+            cvv: null,
+            expiry: null,
+            pin: null,
+            accountHolder: null,
+            branch: null,
+            notes: null,
+            updated_at: new Date(),
+            created_at: null,
+          },
+          { ...form },
+        );
+        toast("success", "Account saved.");
+      }
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        void utils.dashboard.overview.invalidate();
+      }
+      closeModal();
+    } catch (err: unknown) {
+      toast("error", err instanceof Error ? err.message : "Could not save account.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -213,24 +255,33 @@ export default function BankingPage() {
       title: "Delete account",
       message: `Permanently delete "${row.bankName}"? This cannot be undone.`,
     });
-    if (ok) remove.mutate({ id: row.id });
+    if (!ok) return;
+    try {
+      await remove(row);
+      toast("success", "Account deleted.");
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        void utils.dashboard.overview.invalidate();
+      }
+    } catch (err: unknown) {
+      toast("error", err instanceof Error ? err.message : "Could not delete account.");
+    }
   };
 
   const exportRows = useMemo(
     () =>
-      data?.rows.map((r) => ({
+      (rows as Row[]).map((r) => ({
         bank: r.bankName,
         type: r.accountType ?? "",
         holder: r.accountHolder ?? "",
-        card: r.cardNumber,
-        sa: r.accountNumber,
-        cvv: r.cvv,
+        card: r.cardNumber ?? "",
+        sa: r.accountNumber ?? "",
+        cvv: r.cvv ?? "",
         expiry: r.expiry ?? "",
         branch: r.branch ?? "",
         notes: r.notes ?? "",
         updated: fmtDate(r.updated_at),
-      })) ?? [],
-    [data],
+      })),
+    [rows],
   );
 
   const doExport = (format: "csv" | "xls") => {
@@ -239,8 +290,10 @@ export default function BankingPage() {
     else downloadXls("banking.xls", headers, exportRows, "Banking");
   };
 
-  const toggle = (id: number, key: "num" | "sa" | "cvv") =>
-    setRevealed((r) => ({ ...r, [id]: { ...r[id], [key]: !r[id]?.[key] } }));
+  const toggle = (id: number | null, key: "num" | "sa" | "cvv") => {
+    const k = String(id);
+    setRevealed((r) => ({ ...r, [k]: { ...r[k], [key]: !r[k]?.[key] } }));
+  };
 
   const maskCard = (v: string) => (v.length >= 4 ? `•••• •••• •••• ${v.slice(-4)}` : "••••");
   const maskSa = (v: string) => (v.length >= 4 ? `•••••• ${v.slice(-4)}` : "••••");
@@ -253,7 +306,7 @@ export default function BankingPage() {
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Banking</h2>
             <p className="mt-0.5 text-xs text-slate-400">
-              {data?.total ?? 0} accounts · details encrypted
+              {list.total} accounts · details encrypted
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -288,15 +341,15 @@ export default function BankingPage() {
             <div key={i} className="aspect-[1.586] w-full animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
           ))}
         </div>
-      ) : !data || data.rows.length === 0 ? (
+      ) : list.rows.length === 0 ? (
         <div className="card">
           <EmptyState icon={Banknote} title="No accounts found" description="Add your first bank account or adjust your search." />
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {data.rows.map((row) => {
-              const rev = revealed[row.id] ?? {};
+            {list.rows.map((row) => {
+              const rev = revealed[String(row.id)] ?? {};
               return (
                 <div
                   key={row.id}
@@ -360,7 +413,7 @@ export default function BankingPage() {
                               {rev.num ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                             </button>
                             <CopyIconButton
-                              value={row.cardNumber}
+                              value={row.cardNumber ?? ""}
                               className="text-white/70 transition hover:text-white"
                               title="Copy card number"
                             />
@@ -372,20 +425,20 @@ export default function BankingPage() {
                     <div className="flex items-end justify-between gap-3">
                       <CardRow
                         label="SA"
-                        value={row.accountNumber}
-                        masked={maskSa(row.accountNumber)}
+                        value={row.accountNumber ?? ""}
+                        masked={maskSa(row.accountNumber ?? "")}
                         revealed={!!rev.sa}
                         onToggle={() => toggle(row.id, "sa")}
-                        copyValue={row.accountNumber}
+                        copyValue={row.accountNumber ?? ""}
                         className="min-w-0 flex-1"
                       />
                       <CardRow
                         label="CVV"
-                        value={row.cvv}
-                        masked={maskCvv(row.cvv)}
+                        value={row.cvv ?? ""}
+                        masked={maskCvv(row.cvv ?? "")}
                         revealed={!!rev.cvv}
                         onToggle={() => toggle(row.id, "cvv")}
-                        copyValue={row.cvv}
+                        copyValue={row.cvv ?? ""}
                       />
                       {row.expiry ? (
                         <div className="shrink-0">
@@ -406,7 +459,9 @@ export default function BankingPage() {
               );
             })}
           </div>
-          {data ? <PaginationBar page={data.page} pages={data.pages} total={data.total} onChange={setPage} /> : null}
+          {list.rows.length > 0 ? (
+            <PaginationBar page={list.page} pages={list.pages} total={list.total} onChange={setPage} />
+          ) : null}
         </>
       )}
 
@@ -417,16 +472,16 @@ export default function BankingPage() {
         icon={<Banknote className="h-5 w-5 text-brand-600" />}
         footer={
           <>
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={saving}>
               Cancel
             </button>
             <button
               type="submit"
               form="banking-form"
               className="btn btn-primary"
-              disabled={create.isPending || update.isPending}
+              disabled={saving}
             >
-              Save account
+              {saving ? "Saving..." : "Save account"}
             </button>
           </>
         }

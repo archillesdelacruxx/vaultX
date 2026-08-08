@@ -17,6 +17,7 @@ import { passwordsRouter } from "~/server/api/routers/passwords";
 import { savingsRouter } from "~/server/api/routers/savings";
 import { searchRouter } from "~/server/api/routers/search";
 import { subscriptionsRouter } from "~/server/api/routers/subscriptions";
+import { syncRouter } from "~/server/api/routers/sync";
 import { tasksRouter } from "~/server/api/routers/tasks";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
@@ -45,6 +46,7 @@ export const appRouter = createTRPCRouter({
   savings: savingsRouter,
   search: searchRouter,
   subscriptions: subscriptionsRouter,
+  sync: syncRouter,
   tasks: tasksRouter,
 });
 

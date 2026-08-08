@@ -65,6 +65,17 @@
   }
 }
 
+@keyframes pop-up {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @layer utilities {
   .card {
     @apply rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900;
@@ -124,5 +135,9 @@
 
   .kbd {
     @apply rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800;
+  }
+
+  .animate-pop-up {
+    animation: pop-up 0.3s ease-out;
   }
 }

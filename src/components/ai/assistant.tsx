@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { Bot, Send, Sparkles, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "~/lib/cn";
@@ -10,7 +11,11 @@ import { cn } from "~/lib/cn";
 export function AiAssistant() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [tip, setTip] = useState<string | null>(null);
+  const [tipVisible, setTipVisible] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname();
 
   const { messages, sendMessage, status, error } = useChat<UIMessage>({
     transport: new DefaultChatTransport({ api: "/api/ai/chat" }),
@@ -33,6 +38,32 @@ export function AiAssistant() {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [open, messages, status]);
+
+  useEffect(() => {
+    setTipVisible(false);
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+
+    const fetchTip = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch(`/api/ai/tip?path=${encodeURIComponent(pathname)}`);
+          if (!res.ok) return;
+          const data = (await res.json()) as { tip?: string | null };
+          if (!data.tip || open) return;
+          setTip(data.tip);
+          setTipVisible(true);
+          dismissTimerRef.current = setTimeout(() => setTipVisible(false), 9000);
+        } catch {
+          // ignore — popup is optional
+        }
+      })();
+    }, 600);
+
+    return () => {
+      clearTimeout(fetchTip);
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    };
+  }, [pathname, open]);
 
   const busy = status === "submitted" || status === "streaming";
 
@@ -140,6 +171,42 @@ export function AiAssistant() {
               <Send className="h-4 w-4" />
             </button>
           </form>
+        </div>
+      ) : null}
+
+      {tipVisible && tip && !open ? (
+        <div className="card animate-pop-up relative w-[min(92vw,340px)] shadow-xl">
+          <button
+            type="button"
+            onClick={() => setTipVisible(false)}
+            className="absolute right-2 top-2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            aria-label="Dismiss suggestion"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex items-start gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600/10 text-brand-600 dark:text-brand-400">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 pr-4">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-400">
+                VaultX AI suggests
+              </div>
+              <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                {tip}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setTipVisible(false);
+                  setOpen(true);
+                }}
+                className="mt-2 text-xs font-semibold text-brand-600 transition hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+              >
+                Ask me about this →
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 

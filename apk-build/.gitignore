@@ -1,0 +1,9 @@
+.gradle/
+build/
+app/build/
+android.keystore
+signing-password.txt
+*.idsig
+app-release-unsigned-aligned.apk
+app-release-unsigned.apk
+app-release-signed.apk

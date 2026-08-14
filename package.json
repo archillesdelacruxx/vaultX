@@ -32,6 +32,7 @@
     "@trpc/client": "^11.0.0",
     "@trpc/react-query": "^11.0.0",
     "@trpc/server": "^11.0.0",
+    "@vercel/blob": "^2.8.0",
     "ai": "^6.0.242",
     "bcryptjs": "^3.0.3",
     "dexie": "^4.4.4",

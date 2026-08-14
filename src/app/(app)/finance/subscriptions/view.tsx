@@ -1,22 +1,25 @@
 "use client";
 
 import {
+  CalendarClock,
   FileDown,
   FileSpreadsheet,
   Pencil,
   Plus,
   Repeat,
   Search,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Modal } from "~/components/ui/modal";
 import { PaginationBar } from "~/components/ui/pagination";
-import { EmptyState } from "~/components/ui/primitives";
+import { EmptyState, StatCard } from "~/components/ui/primitives";
 import { useConfirm } from "~/components/ui/confirm";
 import { useToast } from "~/components/ui/toast";
 import { downloadCsv, downloadXls } from "~/lib/export";
+import { cn } from "~/lib/cn";
 import { fmtDate, money, moneyAmount, toDateInput } from "~/server/lib/format";
 import { useCurrency } from "~/components/currency-context";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -24,6 +27,50 @@ import { api, type RouterOutputs } from "~/trpc/react";
 type Row = RouterOutputs["subscriptions"]["list"]["rows"][number];
 
 const EMPTY_FORM = { name: "", amount: "", billingCycle: "monthly" as Row["billingCycle"], nextBilling: "", autoRenew: true, notes: "" };
+
+const CYCLE_STYLE: Record<Row["billingCycle"], string> = {
+  weekly: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400",
+  monthly: "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400",
+  quarterly: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400",
+  yearly: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+};
+
+const CYCLE_ACCENT: Record<Row["billingCycle"], string> = {
+  weekly: "from-sky-500 to-cyan-500",
+  monthly: "from-brand-500 to-indigo-600",
+  quarterly: "from-violet-500 to-purple-600",
+  yearly: "from-amber-400 to-orange-500",
+};
+
+const CYCLE_LABEL: Record<Row["billingCycle"], string> = {
+  weekly: "Weekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+  yearly: "Yearly",
+};
+
+function cycleMonthly(amount: number, cycle: Row["billingCycle"]): number {
+  switch (cycle) {
+    case "weekly":
+      return (amount * 52) / 12;
+    case "quarterly":
+      return amount / 3;
+    case "yearly":
+      return amount / 12;
+    default:
+      return amount;
+  }
+}
+
+function daysUntil(date: Date | string | null | undefined): number | null {
+  if (!date) return null;
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - today.getTime()) / 86_400_000);
+}
 
 export default function SubscriptionsPage() {
   const currency = useCurrency();
@@ -68,6 +115,16 @@ export default function SubscriptionsPage() {
     },
     onError: (e) => toast("error", e.message),
   });
+
+  const stats = useMemo(() => {
+    const rows = data?.rows ?? [];
+    const monthly = rows.reduce((sum, r) => sum + cycleMonthly(r.amount, r.billingCycle), 0);
+    const autoRenew = rows.filter((r) => r.autoRenew).length;
+    const upcoming = rows
+      .filter((r) => r.nextBilling)
+      .sort((a, b) => new Date(a.nextBilling!).getTime() - new Date(b.nextBilling!).getTime())[0];
+    return { monthly, autoRenew, upcoming };
+  }, [data]);
 
   const openNew = () => {
     setEditing(null);
@@ -136,11 +193,35 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Active subscriptions" value={String(data?.total ?? 0)} icon={Repeat} tone="brand" />
+        <StatCard
+          label="Monthly recurring"
+          value={money(stats.monthly, currency)}
+          icon={Sparkles}
+          tone="violet"
+        />
+        <StatCard label="Auto-renewing" value={String(stats.autoRenew)} icon={CalendarClock} tone="green" />
+      </div>
+
       <div className="card">
         <div className="card-header">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Subscriptions</h2>
-            <p className="mt-0.5 text-xs text-slate-400">{data?.total ?? 0} active subscriptions</p>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+              <Repeat className="h-4 w-4 text-brand-600" />
+              Subscriptions
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-400">
+              {data?.total ?? 0} active subscriptions
+              {stats.upcoming?.nextBilling ? (
+                <>
+                  {" · "}next charge{" "}
+                  <span className="font-medium text-slate-600 dark:text-slate-300">
+                    {stats.upcoming.name} ({fmtDate(stats.upcoming.nextBilling)})
+                  </span>
+                </>
+              ) : null}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
@@ -171,7 +252,7 @@ export default function SubscriptionsPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="card h-32 animate-pulse bg-slate-100 dark:bg-slate-800" />
+            <div key={i} className="card h-40 animate-pulse bg-slate-100 dark:bg-slate-800" />
           ))}
         </div>
       ) : !data || data.rows.length === 0 ? (
@@ -181,42 +262,84 @@ export default function SubscriptionsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {data.rows.map((row) => (
-              <div key={row.id} className="card flex flex-col transition hover:shadow-md">
-                <div className="flex items-start justify-between gap-2 p-4 pb-2">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-                      <Repeat className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate font-semibold text-slate-900 dark:text-white">{row.name}</span>
-                      <span className="block text-xs text-slate-400">
-                        {row.billingCycle} · {row.nextBilling ? `next ${fmtDate(row.nextBilling)}` : "no schedule"}
+            {data.rows.map((row) => {
+              const days = daysUntil(row.nextBilling);
+              return (
+                <div key={row.id} className="card group relative flex flex-col overflow-hidden transition hover:shadow-md">
+                  <div className={cn("h-1 w-full bg-gradient-to-r", CYCLE_ACCENT[row.billingCycle])} />
+                  <div className="flex items-start justify-between gap-2 p-4 pb-2">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={cn(
+                          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+                          CYCLE_STYLE[row.billingCycle],
+                        )}
+                      >
+                        <Repeat className="h-5 w-5" />
                       </span>
-                    </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-slate-900 dark:text-white">
+                          {row.name}
+                        </span>
+                        <span className="block text-xs text-slate-400">
+                          {CYCLE_LABEL[row.billingCycle]}
+                          {row.nextBilling ? ` · next ${fmtDate(row.nextBilling)}` : " · no schedule"}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-0.5 opacity-70 transition group-hover:opacity-100">
+                      <button type="button" className="icon-btn" title="Edit" onClick={() => openEdit(row)}>
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button type="button" className="icon-btn" title="Delete" onClick={() => handleDelete(row)}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    <button type="button" className="icon-btn" title="Edit" onClick={() => openEdit(row)}>
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button type="button" className="icon-btn" title="Delete" onClick={() => handleDelete(row)}>
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </button>
+                  <div className="flex-1 px-4 pb-3">
+                    <div className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                      {money(row.amount, currency)}
+                      <span className="ml-1 text-xs font-medium text-slate-400">
+                        /{row.billingCycle === "monthly" ? "mo" : row.billingCycle.slice(0, 3)}
+                      </span>
+                    </div>
+                    {row.notes ? <p className="mt-1 line-clamp-2 text-xs text-slate-400">{row.notes}</p> : null}
+                  </div>
+                  <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5 dark:border-slate-800">
+                    {row.nextBilling && days !== null ? (
+                      days < 0 ? (
+                        <span className="badge bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400">
+                          Overdue by {-days}d
+                        </span>
+                      ) : days === 0 ? (
+                        <span className="badge bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400">
+                          Due today
+                        </span>
+                      ) : days <= 7 ? (
+                        <span className="badge bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                          Due in {days}d
+                        </span>
+                      ) : (
+                        <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          Due in {days}d
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-[11px] text-slate-400">No schedule</span>
+                    )}
+                    {row.autoRenew ? (
+                      <span className="badge bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                        Auto-renew
+                      </span>
+                    ) : (
+                      <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        Manual
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex-1 px-4 pb-3">
-                  <div className="text-lg font-bold text-slate-900 dark:text-white">{money(row.amount, currency)}</div>
-                  {row.notes ? <p className="mt-1 line-clamp-2 text-xs text-slate-400">{row.notes}</p> : null}
-                </div>
-                <div className="mt-auto flex items-center justify-between border-t border-slate-100 px-4 py-2.5 dark:border-slate-800">
-                  {row.autoRenew ? (
-                    <span className="badge bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">Auto-renew</span>
-                  ) : (
-                    <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">Manual</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {data ? <PaginationBar page={data.page} pages={data.pages} total={data.total} onChange={setPage} /> : null}
         </>

@@ -1,0 +1,124 @@
+import React, { useState } from "react";
+
+import { type FieldDef } from "@/components/crud/fields";
+import { ModuleScreen } from "@/components/crud/module-screen";
+import { useAuth } from "@/providers/auth-provider";
+import { dateToStr, formatDate, formatMoney } from "@/lib/money";
+import { api, trpcClient } from "@/lib/trpc";
+import { useThemeColors } from "@/lib/theme";
+
+interface ExpenseRow {
+  id: number;
+  title: string;
+  amount: number;
+  category: string | null;
+  paidOn: Date | null;
+  notes: string | null;
+}
+
+type ExpenseForm = {
+  title: string;
+  amount: string;
+  category: string;
+  paidOn: string;
+  notes: string;
+};
+
+const CATEGORIES = [
+  "Food",
+  "Transport",
+  "Bills",
+  "Shopping",
+  "Entertainment",
+  "Health",
+  "Education",
+  "Other",
+];
+
+const FIELDS: FieldDef[] = [
+  { name: "title", label: "Title", type: "text", placeholder: "Groceries", capitalize: true },
+  { name: "amount", label: "Amount", type: "number" },
+  { name: "category", label: "Category", type: "select", options: CATEGORIES, optional: true },
+  { name: "paidOn", label: "Date", type: "date", optional: true },
+  { name: "notes", label: "Notes", type: "multiline", optional: true },
+];
+
+const EMPTY: ExpenseForm = { title: "", amount: "", category: "", paidOn: "", notes: "" };
+
+export default function ExpensesScreen() {
+  const utils = api.useUtils();
+  const { user } = useAuth();
+  const colors = useThemeColors();
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const { data, isLoading, isFetching, refetch } = api.expenses.list.useQuery({
+    q: q || undefined,
+    page,
+  });
+  const rows = data?.rows ?? [];
+  const canLoadMore = (data?.page ?? 1) < (data?.pages ?? 1);
+
+  const invalidate = async () => {
+    await utils.expenses.list.invalidate();
+    await utils.dashboard.overview.invalidate();
+  };
+
+  return (
+    <ModuleScreen<ExpenseRow, ExpenseForm>
+      title="Expenses"
+      subtitle={`${data?.total ?? 0} recorded`}
+      icon="trending-down"
+      fields={FIELDS}
+      emptyForm={EMPTY}
+      toForm={(item) => ({
+        title: item.title,
+        amount: String(item.amount),
+        category: item.category ?? "",
+        paidOn: dateToStr(item.paidOn),
+        notes: item.notes ?? "",
+      })}
+      rows={rows}
+      isLoading={isLoading}
+      isFetching={isFetching}
+      canLoadMore={canLoadMore}
+      onLoadMore={() => setPage((p) => (p < (data?.pages ?? 1) ? p + 1 : p))}
+      onSearch={(v) => {
+        setQ(v);
+        setPage(1);
+      }}
+      onRefresh={() => refetch()}
+      onAdd={async (form) => {
+        await trpcClient.expenses.create.mutate({
+          title: form.title,
+          amount: parseFloat(form.amount || "0") || 0,
+          category: form.category || null,
+          paidOn: form.paidOn || null,
+          notes: form.notes || null,
+        });
+        await invalidate();
+      }}
+      onUpdate={async (id, form) => {
+        await trpcClient.expenses.update.mutate({
+          id,
+          title: form.title,
+          amount: parseFloat(form.amount || "0") || 0,
+          category: form.category || null,
+          paidOn: form.paidOn || null,
+          notes: form.notes || null,
+        });
+        await invalidate();
+      }}
+      onDelete={async (id) => {
+        await trpcClient.expenses.remove.mutate({ id });
+        await invalidate();
+      }}
+      renderItem={(item) => ({
+        title: item.title,
+        subtitle: [item.category, formatDate(item.paidOn)].filter(Boolean).join(" · "),
+        right: formatMoney(item.amount, user?.currency),
+        accent: colors.danger,
+        icon: "trending-down",
+      })}
+    />
+  );
+}
